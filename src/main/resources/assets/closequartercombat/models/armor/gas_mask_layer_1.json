@@ -3,7 +3,7 @@
 	"credit": "Made with Blockbench",
 	"texture_size": [64, 32],
 	"textures": {
-		"1": "closequartercombat:item/gas_mask_blockbench"
+		"1": "closequartercombat:models/armor/gas_mask_layer_1"
 	},
 	"elements": [
 		{
