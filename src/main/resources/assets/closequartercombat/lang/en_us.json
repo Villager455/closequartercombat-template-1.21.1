@@ -1,0 +1,20 @@
+{
+  "itemGroup.closequartercombat.cqc_tab": "Close Quarter Combat",
+  "block.closequartercombat.example_block": "Example Block",
+  "item.closequartercombat.example_item": "Example Item",
+
+  "closequartercombat.configuration.title": "Close Quarter Combat Configs",
+  "closequartercombat.configuration.section.closequartercombat.common.toml": "Close Quarter Combat Configs",
+  "closequartercombat.configuration.section.closequartercombat.common.toml.title": "Close Quarter Combat Configs",
+  "closequartercombat.configuration.items": "Item List",
+  "closequartercombat.configuration.logDirtBlock": "Log Dirt Block",
+  "closequartercombat.configuration.magicNumberIntroduction": "Magic Number Text",
+  "closequartercombat.configuration.magicNumber": "Magic Number",
+
+  "item.closequartercombat.officer_saber": "Officer Saber",
+  "item.closequartercombat.machete": "Machete",
+  "item.closequartercombat.combat_knife": "Combat Knife",
+  "item.closequartercombat.trench_shovel": "Trench Shovel",
+  "item.closequartercombat.pickaxe_weapon": "Pickaxe"
+
+}

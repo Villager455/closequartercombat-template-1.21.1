@@ -1,0 +1,61 @@
+{
+  "parent": "item/handheld",
+
+  "textures": {
+    "layer0": "closequartercombat:item/combat_knife"
+  },
+
+  "display": {
+    "gui": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        3,
+        3,
+        0
+      ],
+      "scale": [
+        1.4,
+        1.4,
+        1
+      ]
+    },
+    "thirdperson_righthand": {
+      "rotation": [
+        0,
+        -90,
+        25
+      ],
+      "translation": [
+        0,
+        3,
+        3.5
+      ],
+      "scale": [
+        1.4,
+        1.4,
+        1
+      ]
+    },
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        -90,
+        -20
+      ],
+      "translation": [
+        1.13,
+        10.2,
+        0
+      ],
+      "scale": [
+        1.55,
+        1.55,
+        1
+      ]
+    }
+  }
+}
