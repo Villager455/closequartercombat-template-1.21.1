@@ -1,6 +1,9 @@
 package com.rdc.cqc.item;
 
 import com.rdc.cqc.CloseQuarterCombat;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ArmorItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.SwordItem;
 import net.minecraft.world.item.Tiers;
@@ -80,4 +83,19 @@ public class CQCItems
                             ))
             )
     );
+
+    public static final DeferredItem<Item> GAS_MASK = ITEMS.register(
+            "gas_mask",
+            () -> new ArmorItem(
+                    CQCArmorMaterials.gasMask(),
+                    ArmorItem.Type.HELMET,
+                    new Item.Properties()
+                            .durability(ArmorItem.Type.HELMET.getDurability(8))
+            )
+    );
+
+    public static boolean isWearingGasMask(LivingEntity entity)
+    {
+        return entity.getItemBySlot(EquipmentSlot.HEAD).is(GAS_MASK.get());
+    }
 }

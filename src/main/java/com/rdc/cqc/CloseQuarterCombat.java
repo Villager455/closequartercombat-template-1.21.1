@@ -3,6 +3,7 @@ package com.rdc.cqc;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
+import com.rdc.cqc.item.CQCArmorMaterials;
 import com.rdc.cqc.item.CQCItems;
 
 import net.minecraft.core.registries.Registries;
@@ -12,6 +13,7 @@ import net.minecraft.world.item.CreativeModeTabs;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
@@ -43,6 +45,7 @@ public class CloseQuarterCombat
                         output.accept(CQCItems.COMBAT_KNIFE.get());
                         output.accept(CQCItems.TRENCH_SHOVEL.get());
                         output.accept(CQCItems.PICKAXE_WEAPON.get());
+                        output.accept(CQCItems.GAS_MASK.get());
                     })
 
                     .build());
@@ -50,10 +53,14 @@ public class CloseQuarterCombat
     public CloseQuarterCombat(IEventBus modEventBus, ModContainer modContainer)
     {
         // Реєстрація предметів
+        CQCArmorMaterials.ARMOR_MATERIALS.register(modEventBus);
         CQCItems.ITEMS.register(modEventBus);
 
         // Реєстрація вкладки
         CREATIVE_MODE_TABS.register(modEventBus);
+
+        NeoForge.EVENT_BUS.addListener(CQCEvents::onMobEffectApplicable);
+        NeoForge.EVENT_BUS.addListener(CQCEvents::onLivingEquipmentChange);
 
         LOGGER.info("Close Quarter Combat loaded!");
     }
