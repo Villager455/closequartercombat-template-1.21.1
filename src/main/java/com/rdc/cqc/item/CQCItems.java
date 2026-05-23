@@ -1,6 +1,7 @@
 package com.rdc.cqc.item;
 
 import com.rdc.cqc.CloseQuarterCombat;
+import com.rdc.cqc.entity.ThrownGrenadeEntity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ArmorItem;
@@ -152,6 +153,36 @@ public class CQCItems
                     ArmorItem.Type.LEGGINGS,
                     new Item.Properties()
                             .durability(ArmorItem.Type.LEGGINGS.getDurability(15))
+            )
+    );
+
+    // ============================
+    //          ГРАНАТИ
+    // ============================
+    // Кидаються з ПКМ. Через 3 секунди вибух (HE/DEMO) або газова хмара (GAS).
+    // Логіка фізики/детонації — у ThrownGrenadeEntity. Stack-розмір як у яйця (16).
+
+    public static final DeferredItem<Item> GRENADE = ITEMS.register(
+            "grenade",
+            () -> new GrenadeItem(
+                    new Item.Properties().stacksTo(16),
+                    ThrownGrenadeEntity.Type.HE
+            )
+    );
+
+    public static final DeferredItem<Item> DEMO_GRENADE = ITEMS.register(
+            "demo_grenade",
+            () -> new GrenadeItem(
+                    new Item.Properties().stacksTo(16),
+                    ThrownGrenadeEntity.Type.DEMO
+            )
+    );
+
+    public static final DeferredItem<Item> GAS_GRENADE = ITEMS.register(
+            "gas_grenade",
+            () -> new GrenadeItem(
+                    new Item.Properties().stacksTo(16),
+                    ThrownGrenadeEntity.Type.GAS
             )
     );
 

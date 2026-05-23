@@ -1,0 +1,177 @@
+package com.rdc.cqc.item;
+
+import com.rdc.cqc.entity.ThrownGrenadeEntity;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.stats.Stats;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+
+/**
+ * Предмет-граната. Працює у дві стадії:
+ *
+ * <ol>
+ *     <li><b>ЛКМ ({@link #pullPin}):</b> «висмикується чека» — на стек записується
+ *         компонент {@link CQCDataComponents#GRENADE_FUSE} зі стартовим значенням 60 тіків.
+ *         Граната ще лежить у руці; запускається ванільний звук запалу динаміту.</li>
+ *     <li><b>ПКМ ({@link #use}):</b> викидаємо {@link ThrownGrenadeEntity}.
+ *         Якщо чека вже висмикнута — entity отримує <i>залишок</i> фьюзу
+ *         (час, який гравець уже протримав гранату, ВРАХОВУЄТЬСЯ). Інакше — entity
+ *         має повний фьюз 60 тіків.</li>
+ * </ol>
+ *
+ * <p>Якщо гравець не викине запалену гранату, {@link #inventoryTick} зменшує фьюз кожен тік
+ * і коли він досягає нуля — викликається вибух прямо в руці гравця.</p>
+ */
+public class GrenadeItem extends Item
+{
+    /** Стартовий фьюз від моменту висмикування чеки. */
+    public static final int DEFAULT_FUSE_TICKS = 60;
+
+    private final ThrownGrenadeEntity.Type type;
+
+    public GrenadeItem(Properties properties, ThrownGrenadeEntity.Type type)
+    {
+        super(properties);
+        this.type = type;
+    }
+
+    public ThrownGrenadeEntity.Type getGrenadeType()
+    {
+        return type;
+    }
+
+    /**
+     * Чи зараз у цього стека висмикнута чека (наявний компонент фьюзу).
+     */
+    public static boolean isPinPulled(ItemStack stack)
+    {
+        return stack.has(CQCDataComponents.GRENADE_FUSE.get());
+    }
+
+    /**
+     * Поточний залишок фьюзу. {@code -1} якщо чека не висмикнута.
+     */
+    public static int getRemainingFuse(ItemStack stack)
+    {
+        Integer v = stack.get(CQCDataComponents.GRENADE_FUSE.get());
+        return v == null ? -1 : v;
+    }
+
+    /**
+     * Викликається серверним обробником {@link com.rdc.cqc.network.PullPinPayload}.
+     * Виставляє компонент фьюзу й програє звук запалу. Повторне натискання — не робить нічого.
+     */
+    public void pullPin(ServerLevel level, Player player, InteractionHand hand, ItemStack stack)
+    {
+        if (isPinPulled(stack))
+        {
+            return; // вже активовано
+        }
+
+        stack.set(CQCDataComponents.GRENADE_FUSE.get(), DEFAULT_FUSE_TICKS);
+
+        // Звук запалу динаміту (PRIMED) — як просив користувач.
+        level.playSound(
+                null,
+                player.getX(), player.getY(), player.getZ(),
+                SoundEvents.TNT_PRIMED, SoundSource.PLAYERS,
+                1.0F, 1.0F
+        );
+    }
+
+    /**
+     * При ПКМ — кидаємо гранату. Якщо чека вже висмикнута, час що вже минув,
+     * враховується в entity (її fuse = залишок зі стека).
+     */
+    @Override
+    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand)
+    {
+        ItemStack stack = player.getItemInHand(hand);
+
+        // Звук «кидка» (короткий «вух» сніжка).
+        level.playSound(
+                null,
+                player.getX(), player.getY(), player.getZ(),
+                SoundEvents.SNOWBALL_THROW, SoundSource.PLAYERS,
+                0.6F, 0.8F / (level.getRandom().nextFloat() * 0.4F + 0.8F)
+        );
+
+        if (!level.isClientSide())
+        {
+            int fuse = getRemainingFuse(stack);
+            if (fuse < 0) fuse = DEFAULT_FUSE_TICKS;
+
+            ThrownGrenadeEntity grenade = ThrownGrenadeEntity.throwGrenade(level, player, this.type, stack);
+            grenade.setFuse(fuse);
+        }
+
+        player.awardStat(Stats.ITEM_USED.get(this));
+
+        if (!player.getAbilities().instabuild)
+        {
+            stack.shrink(1);
+        }
+
+        return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
+    }
+
+    /**
+     * Тік предмета в інвентарі: якщо чека висмикнута — зменшуємо фьюз. Коли
+     * фьюз ≤ 0 — викликаємо вибух прямо в гравця і прибираємо стек.
+     */
+    @Override
+    public void inventoryTick(ItemStack stack, Level level, Entity entity, int slotId, boolean isSelected)
+    {
+        if (level.isClientSide()) return;
+        if (!isPinPulled(stack)) return;
+        if (!(entity instanceof Player player)) return;
+
+        int fuse = getRemainingFuse(stack);
+        fuse--;
+
+        if (fuse <= 0)
+        {
+            // Вибух у руці гравця.
+            detonateInHand(level, player);
+            stack.shrink(1);
+        }
+        else
+        {
+            stack.set(CQCDataComponents.GRENADE_FUSE.get(), fuse);
+        }
+    }
+
+    /**
+     * Вибух точно в позиції гравця (коли граната «вибухнула в руках»).
+     * Тип взаємодії з блоками та модель пошкоджень — як у звичайної детонації.
+     */
+    private void detonateInHand(Level level, Player player)
+    {
+        switch (this.type)
+        {
+            case HE, DEMO -> level.explode(
+                    null,
+                    player.getX(), player.getY() + 0.5D, player.getZ(),
+                    3.0F,
+                    Level.ExplosionInteraction.TNT
+            );
+            case GAS ->
+            {
+                // Спавнимо газову хмару в позиції гравця — без entity, через
+                // методи Level. Простіше — створюємо тимчасову гранату-сутність
+                // лише щоб виконати її spawnPoisonCloud-логіку через detonate().
+                ThrownGrenadeEntity dummy = new ThrownGrenadeEntity(level, player, ThrownGrenadeEntity.Type.GAS);
+                dummy.setPos(player.getX(), player.getY() + 0.5D, player.getZ());
+                level.addFreshEntity(dummy);
+                dummy.setFuse(1); // вибухне на наступному тіку у власній позиції
+            }
+        }
+    }
+}

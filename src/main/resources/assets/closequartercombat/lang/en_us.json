@@ -24,5 +24,11 @@
   "item.closequartercombat.trenchcoat_chest_s": "Trenchcoat S",
   "item.closequartercombat.trenchcoat_legs_s": "Trenchcoat Pants S",
   "item.closequartercombat.trenchcoat_chest_x": "Trenchcoat X",
-  "item.closequartercombat.trenchcoat_legs_x": "Trenchcoat Pants X"
+  "item.closequartercombat.trenchcoat_legs_x": "Trenchcoat Pants X",
+
+  "item.closequartercombat.grenade": "Grenade",
+  "item.closequartercombat.demo_grenade": "Demolition Grenade",
+  "item.closequartercombat.gas_grenade": "Gas Grenade",
+
+  "entity.closequartercombat.thrown_grenade": "Thrown Grenade"
 }

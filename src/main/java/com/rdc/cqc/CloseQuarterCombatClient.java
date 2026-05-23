@@ -1,5 +1,7 @@
 package com.rdc.cqc;
 
+import com.rdc.cqc.client.GrenadeRenderer;
+import com.rdc.cqc.entity.CQCEntities;
 import com.rdc.cqc.item.CQCItems;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
@@ -10,6 +12,7 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
@@ -27,11 +30,20 @@ public class CloseQuarterCombatClient {
     public CloseQuarterCombatClient(IEventBus modEventBus, ModContainer container) {
         modEventBus.addListener(CloseQuarterCombatClient::onClientSetup);
         modEventBus.addListener(CloseQuarterCombatClient::registerGuiLayers);
+        modEventBus.addListener(CloseQuarterCombatClient::registerEntityRenderers);
 
         // Allows NeoForge to create a config screen for this mod's configs.
         // The config screen is accessed by going to the Mods screen > clicking on your mod > clicking on config.
         // Do not forget to add translations for your config options to the en_us.json file.
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
+    }
+
+    /**
+     * Реєстрація рендера гранатної сутності. Власний {@link GrenadeRenderer}
+     * обертає item-модель під час польоту (на відміну від ванільного ThrownItemRenderer).
+     */
+    static void registerEntityRenderers(EntityRenderersEvent.RegisterRenderers event) {
+        event.registerEntityRenderer(CQCEntities.THROWN_GRENADE.get(), GrenadeRenderer::new);
     }
 
     static void onClientSetup(FMLClientSetupEvent event) {
