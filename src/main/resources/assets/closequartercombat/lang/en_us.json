@@ -16,6 +16,13 @@
   "item.closequartercombat.combat_knife": "Combat Knife",
   "item.closequartercombat.trench_shovel": "Trench Shovel",
   "item.closequartercombat.pickaxe_weapon": "Pickaxe",
-  "item.closequartercombat.gas_mask": "Gas Mask"
 
+  "item.closequartercombat.gas_mask": "Gas Mask",
+  "item.closequartercombat.gas_mask_s": "Gas Mask S",
+  "item.closequartercombat.gas_mask_x": "Gas Mask X",
+
+  "item.closequartercombat.trenchcoat_chest_s": "Trenchcoat S",
+  "item.closequartercombat.trenchcoat_legs_s": "Trenchcoat Pants S",
+  "item.closequartercombat.trenchcoat_chest_x": "Trenchcoat X",
+  "item.closequartercombat.trenchcoat_legs_x": "Trenchcoat Pants X"
 }

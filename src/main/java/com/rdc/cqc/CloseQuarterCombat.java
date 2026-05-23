@@ -3,6 +3,7 @@ package com.rdc.cqc;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
+import com.rdc.cqc.item.CQCArmorMaterials;
 import com.rdc.cqc.item.CQCItems;
 
 import net.minecraft.core.registries.Registries;
@@ -44,14 +45,25 @@ public class CloseQuarterCombat
                         output.accept(CQCItems.COMBAT_KNIFE.get());
                         output.accept(CQCItems.TRENCH_SHOVEL.get());
                         output.accept(CQCItems.PICKAXE_WEAPON.get());
+
+                        // Протигази
                         output.accept(CQCItems.GAS_MASK.get());
+                        output.accept(CQCItems.GAS_MASK_S.get());
+                        output.accept(CQCItems.GAS_MASK_X.get());
+
+                        // Плащі — комплекти S та X
+                        output.accept(CQCItems.TRENCHCOAT_CHEST_S.get());
+                        output.accept(CQCItems.TRENCHCOAT_LEGS_S.get());
+                        output.accept(CQCItems.TRENCHCOAT_CHEST_X.get());
+                        output.accept(CQCItems.TRENCHCOAT_LEGS_X.get());
                     })
 
                     .build());
 
     public CloseQuarterCombat(IEventBus modEventBus, ModContainer modContainer)
     {
-        // Реєстрація предметів
+        // Реєстрація матеріалів броні (для TrenchCoat S/X) та предметів
+        CQCArmorMaterials.ARMOR_MATERIALS.register(modEventBus);
         CQCItems.ITEMS.register(modEventBus);
 
         // Реєстрація вкладки
