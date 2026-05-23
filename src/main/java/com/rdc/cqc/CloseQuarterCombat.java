@@ -3,7 +3,6 @@ package com.rdc.cqc;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
-import com.rdc.cqc.item.CQCArmorMaterials;
 import com.rdc.cqc.item.CQCItems;
 
 import net.minecraft.core.registries.Registries;
@@ -53,7 +52,6 @@ public class CloseQuarterCombat
     public CloseQuarterCombat(IEventBus modEventBus, ModContainer modContainer)
     {
         // Реєстрація предметів
-        CQCArmorMaterials.ARMOR_MATERIALS.register(modEventBus);
         CQCItems.ITEMS.register(modEventBus);
 
         // Реєстрація вкладки

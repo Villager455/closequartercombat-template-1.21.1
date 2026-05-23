@@ -3,7 +3,6 @@ package com.rdc.cqc.item;
 import com.rdc.cqc.CloseQuarterCombat;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.item.ArmorItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.SwordItem;
 import net.minecraft.world.item.Tiers;
@@ -84,13 +83,14 @@ public class CQCItems
             )
     );
 
+    // Протигаз — звичайний предмет (не броня), який можна надягати у слот голови.
+    // Не дає захисту від ударів, але блокує зілля та малює оверлей (див. CQCEvents
+    // та CloseQuarterCombatClient). Стек = 1, без durability — як простий аксесуар.
     public static final DeferredItem<Item> GAS_MASK = ITEMS.register(
             "gas_mask",
-            () -> new ArmorItem(
-                    CQCArmorMaterials.gasMask(),
-                    ArmorItem.Type.HELMET,
+            () -> new GasMaskItem(
                     new Item.Properties()
-                            .durability(ArmorItem.Type.HELMET.getDurability(8))
+                            .stacksTo(1)
             )
     );
 
