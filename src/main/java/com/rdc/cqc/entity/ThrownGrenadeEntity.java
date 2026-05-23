@@ -308,6 +308,10 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             cloud.setDuration(GAS_CLOUD_DURATION_TICKS);
             // Отруєння — кожні 25 тіків може накладатися; setReapplicationDelay = 25 за замовч.
             cloud.addEffect(new MobEffectInstance(MobEffects.POISON, 120, 1));
+            // Тошнота (Nausea) — «хитає» камеру жертви, поки вона у хмарі.
+            // Тривалість трохи більша за reapplicationDelay (25), щоб ефект стабільно
+            // поновлювався, але швидко затухав після виходу з хмари.
+            cloud.addEffect(new MobEffectInstance(MobEffects.CONFUSION, 80, 0));
             // Зеленувата димна хмара.
             cloud.setParticle(ParticleTypes.SNEEZE);
 
