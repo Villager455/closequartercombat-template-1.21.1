@@ -157,15 +157,37 @@ public class CQCItems
     );
 
     // ============================
+    //       БРОНЯ "LOBSTER ARMOR"
+    // ============================
+    // Iron-like броня з крабовим дизайном.
+    // Комплект складається з шолома (звичайний предмет) та нагрудника (броня).
+    // Шолом функціонує як газова маска — звичайний предмет з 3D моделлю.
+
+    public static final DeferredItem<Item> LOBSTER_HELMET = ITEMS.register(
+            "lobster_helmet",
+            () -> new GasMaskItem(new Item.Properties().stacksTo(1))
+    );
+
+    public static final DeferredItem<Item> LOBSTER_CHEST = ITEMS.register(
+            "lobster_chest",
+            () -> new ArmorItem(
+                    CQCArmorMaterials.lobsterArmor(),
+                    ArmorItem.Type.CHESTPLATE,
+                    new Item.Properties()
+                            .durability(ArmorItem.Type.CHESTPLATE.getDurability(15))
+            )
+    );
+
+    // ============================
     //          ГРАНАТИ
     // ============================
-    // Кидаються з ПКМ. Через 3 секунди вибух (HE/DEMO) або газова хмара (GAS).
-    // Логіка фізики/детонації — у ThrownGrenadeEntity. Stack-розмір як у яйця (16).
+    // Кидаються з ПКМ. Через 3 секунди вибух (HE/DEMO), газова хмара (GAS) або дим (SMOKE).
+    // Логіка фізики/детонації — у ThrownGrenadeEntity. Stack-розмір = 1 (не стакаються).
 
     public static final DeferredItem<Item> GRENADE = ITEMS.register(
             "grenade",
             () -> new GrenadeItem(
-                    new Item.Properties().stacksTo(16),
+                    new Item.Properties().stacksTo(1),
                     ThrownGrenadeEntity.Type.HE
             )
     );
@@ -173,7 +195,7 @@ public class CQCItems
     public static final DeferredItem<Item> DEMO_GRENADE = ITEMS.register(
             "demo_grenade",
             () -> new GrenadeItem(
-                    new Item.Properties().stacksTo(16),
+                    new Item.Properties().stacksTo(1),
                     ThrownGrenadeEntity.Type.DEMO
             )
     );
@@ -181,8 +203,16 @@ public class CQCItems
     public static final DeferredItem<Item> GAS_GRENADE = ITEMS.register(
             "gas_grenade",
             () -> new GrenadeItem(
-                    new Item.Properties().stacksTo(16),
+                    new Item.Properties().stacksTo(1),
                     ThrownGrenadeEntity.Type.GAS
+            )
+    );
+
+    public static final DeferredItem<Item> SMOKE_GRENADE = ITEMS.register(
+            "smoke_grenade",
+            () -> new GrenadeItem(
+                    new Item.Properties().stacksTo(1),
+                    ThrownGrenadeEntity.Type.SMOKE
             )
     );
 

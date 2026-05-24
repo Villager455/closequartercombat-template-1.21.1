@@ -77,11 +77,11 @@ public class GrenadeItem extends Item
 
         stack.set(CQCDataComponents.GRENADE_FUSE.get(), DEFAULT_FUSE_TICKS);
 
-        // Звук запалу динаміту (PRIMED) — як просив користувач.
+        // Звук запалу (Shear) — як просив користувач.
         level.playSound(
                 null,
                 player.getX(), player.getY(), player.getZ(),
-                SoundEvents.TNT_PRIMED, SoundSource.PLAYERS,
+                SoundEvents.SHEEP_SHEAR, SoundSource.PLAYERS,
                 1.0F, 1.0F
         );
     }

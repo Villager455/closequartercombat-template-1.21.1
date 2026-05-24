@@ -40,6 +40,9 @@ public class CQCArmorMaterials
     public static final DeferredHolder<ArmorMaterial, ArmorMaterial> TRENCHCOAT_X =
             ARMOR_MATERIALS.register("trenchcoat_x", () -> ironLikeMaterial("trenchcoat_x"));
 
+    public static final DeferredHolder<ArmorMaterial, ArmorMaterial> LOBSTER_ARMOR =
+            ARMOR_MATERIALS.register("lobster_armor", () -> ironLikeMaterial("lobster_armor"));
+
     /**
      * Створює iron-like {@link ArmorMaterial} з указаним ім'ям папки для armor-layer текстур.
      * Текстури очікуються за шляхами:
@@ -78,5 +81,10 @@ public class CQCArmorMaterials
     public static Holder<ArmorMaterial> trenchcoatX()
     {
         return TRENCHCOAT_X;
+    }
+
+    public static Holder<ArmorMaterial> lobsterArmor()
+    {
+        return LOBSTER_ARMOR;
     }
 }

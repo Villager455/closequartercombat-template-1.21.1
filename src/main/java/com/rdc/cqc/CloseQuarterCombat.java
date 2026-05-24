@@ -62,10 +62,15 @@ public class CloseQuarterCombat
                         output.accept(CQCItems.TRENCHCOAT_CHEST_X.get());
                         output.accept(CQCItems.TRENCHCOAT_LEGS_X.get());
 
+                        // Крабова броня
+                        output.accept(CQCItems.LOBSTER_HELMET.get());
+                        output.accept(CQCItems.LOBSTER_CHEST.get());
+
                         // Гранати
                         output.accept(CQCItems.GRENADE.get());
                         output.accept(CQCItems.DEMO_GRENADE.get());
                         output.accept(CQCItems.GAS_GRENADE.get());
+                        output.accept(CQCItems.SMOKE_GRENADE.get());
                     })
 
                     .build());

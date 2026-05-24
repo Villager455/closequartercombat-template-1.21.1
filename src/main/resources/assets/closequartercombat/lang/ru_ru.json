@@ -1,0 +1,38 @@
+{
+  "itemGroup.closequartercombat.cqc_tab": "Close Quarter Combat",
+  "block.closequartercombat.example_block": "Example Block",
+  "item.closequartercombat.example_item": "Example Item",
+
+  "closequartercombat.configuration.title": "Close Quarter Combat Configs",
+  "closequartercombat.configuration.section.closequartercombat.common.toml": "Close Quarter Combat Configs",
+  "closequartercombat.configuration.section.closequartercombat.common.toml.title": "Close Quarter Combat Configs",
+  "closequartercombat.configuration.items": "Item List",
+  "closequartercombat.configuration.logDirtBlock": "Log Dirt Block",
+  "closequartercombat.configuration.magicNumberIntroduction": "Magic Number Text",
+  "closequartercombat.configuration.magicNumber": "Magic Number",
+
+  "item.closequartercombat.officer_saber": "Офицерская сабля",
+  "item.closequartercombat.machete": "Мачете",
+  "item.closequartercombat.combat_knife": "Боевой нож",
+  "item.closequartercombat.trench_shovel": "Окопная лопата",
+  "item.closequartercombat.pickaxe_weapon": "Кирка",
+
+  "item.closequartercombat.gas_mask": "Противогаз",
+  "item.closequartercombat.gas_mask_s": "Противогаз S",
+  "item.closequartercombat.gas_mask_x": "Противогаз X",
+
+  "item.closequartercombat.trenchcoat_chest_s": "Плащ S",
+  "item.closequartercombat.trenchcoat_legs_s": "Брюки плаща S",
+  "item.closequartercombat.trenchcoat_chest_x": "Плащ X",
+  "item.closequartercombat.trenchcoat_legs_x": "Брюки плаща X",
+
+  "item.closequartercombat.lobster_helmet": "Шлем стража",
+  "item.closequartercombat.lobster_chest": "Броня стража",
+
+  "item.closequartercombat.grenade": "Граната",
+  "item.closequartercombat.demo_grenade": "Осколочная граната",
+  "item.closequartercombat.gas_grenade": "Газовая граната",
+  "item.closequartercombat.smoke_grenade": "Дымовая граната",
+
+  "entity.closequartercombat.thrown_grenade": "Брошенная граната"
+}

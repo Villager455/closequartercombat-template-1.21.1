@@ -1,6 +1,7 @@
 package com.rdc.cqc.entity;
 
 import com.rdc.cqc.item.CQCItems;
+import java.util.List;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
@@ -63,6 +64,16 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     private static final int GAS_CLOUD_VERTICAL_LAYERS = 3;
     private static final double GAS_CLOUD_LAYER_OFFSET_Y = 1.4D;
 
+    /** Радіус димової хмари (більший за газову). */
+    private static final float SMOKE_CLOUD_RADIUS = 10.0F;
+
+    /** Тривалість димової хмари у тіках (30 с = 600). */
+    private static final int SMOKE_CLOUD_DURATION_TICKS = 600;
+
+    /** Висота "димового стовпа" — кількість шарів AreaEffectCloud по вертикалі. */
+    private static final int SMOKE_CLOUD_VERTICAL_LAYERS = 4;
+    private static final double SMOKE_CLOUD_LAYER_OFFSET_Y = 1.5D;
+
     public ThrownGrenadeEntity(EntityType<? extends ThrownGrenadeEntity> entityType, Level level)
     {
         super(entityType, level);
@@ -112,7 +123,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     @Override
     protected Item getDefaultItem()
     {
-        // Тип може ще не бути встановлений під час дуже ранньої ініціалізації — захищаємось.
+        // Тип може ще не бути встановлений під час дуже ранньої ініціализації — захищаємось.
         try
         {
             return getGrenadeType().getItem();
@@ -258,10 +269,20 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         Type type = getGrenadeType();
         switch (type)
         {
-            case HE, DEMO ->
+            case HE ->
             {
-                // Передаємо null як source — щоб ваніль не виключала з шкоди власника гранати.
-                // Граната все одно завдасть шкоди всім у радіусі, включно з кидальником.
+                // HE граната: шкода від осколків без ламання блоків
+                damageEntitiesInRadius(HE_EXPLOSION_RADIUS, 10.0F);
+                this.level().playSound(
+                        null,
+                        this.getX(), this.getY(), this.getZ(),
+                        SoundEvents.FIREWORK_ROCKET_BLAST, SoundSource.NEUTRAL,
+                        1.0F, 1.2F
+                );
+            }
+            case DEMO ->
+            {
+                // Демо граната: повний вибух з ламанням блоків
                 this.level().explode(
                         null,
                         this.getX(), this.getY(), this.getZ(),
@@ -272,25 +293,243 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             case GAS ->
             {
                 spawnPoisonCloud();
+                spawnRandomGasParticles();
                 this.level().playSound(
                         null,
                         this.getX(), this.getY(), this.getZ(),
-                        SoundEvents.GLASS_BREAK, SoundSource.NEUTRAL,
+                        SoundEvents.FIREWORK_ROCKET_BLAST, SoundSource.NEUTRAL,
                         1.0F, 1.2F
+                );
+            }
+            case SMOKE ->
+            {
+                spawnSmokeCloud();
+                spawnRandomSmokeParticles();
+                this.level().playSound(
+                        null,
+                        this.getX(), this.getY(), this.getZ(),
+                        SoundEvents.FIREWORK_ROCKET_BLAST, SoundSource.NEUTRAL,
+                        0.8F, 1.0F
                 );
             }
         }
     }
 
     /**
-     * Створює AreaEffectCloud з ефектом отруєння замість вибуху.
-     * Кілька шарів по вертикалі — щоб хмара була високою, а не лише по землі.
+     * Наносить шкоду всім живим істотам у радіусі, імітуючи осколки від гранати.
+     */
+    private void damageEntitiesInRadius(float radius, float damage)
+    {
+        List<LivingEntity> entities = this.level().getEntitiesOfClass(
+                LivingEntity.class,
+                this.getBoundingBox().inflate(radius)
+        );
+
+        for (LivingEntity entity : entities)
+        {
+            if (entity == this.getOwner()) continue; // не ранимо власника
+
+            double dist = this.distanceTo(entity);
+            if (dist > radius) continue;
+
+            // Шкода зменшується з відстанню
+            float falloff = 1.0F - (float)(dist / radius);
+            float actualDamage = damage * falloff;
+
+            DamageSource src = this.damageSources().thrown(this, this.getOwner());
+            entity.hurt(src, actualDamage);
+
+            // Легкий штовхач від вибуху
+            Vec3 direction = entity.position().subtract(this.position()).normalize();
+            entity.knockback(0.5D * falloff, direction.x, direction.z);
+        }
+    }
+
+    /**
+     * Створює важку отруйну газову хмару, яка стелиться по землі
+     * та утворює нерівномірні токсичні згустки.
+     * Висновок: створює лише AreaEffectCloud, БЕЗ партіклів.
      */
     private void spawnPoisonCloud()
     {
         for (int i = 0; i < GAS_CLOUD_VERTICAL_LAYERS; i++)
         {
-            double yOffset = i * GAS_CLOUD_LAYER_OFFSET_Y;
+            double yOffset =
+                    i * (GAS_CLOUD_LAYER_OFFSET_Y * 0.4D);
+
+            double offsetX =
+                    (this.random.nextDouble() - 0.5D) * 1.6D;
+
+            double offsetZ =
+                    (this.random.nextDouble() - 0.5D) * 1.6D;
+
+            float radius =
+                    GAS_CLOUD_RADIUS *
+                            (0.6F + this.random.nextFloat() * 0.6F);
+
+            AreaEffectCloud cloud = new AreaEffectCloud(
+                    this.level(),
+                    this.getX() + offsetX,
+                    this.getY() + yOffset,
+                    this.getZ() + offsetZ
+            );
+
+            if (this.getOwner() instanceof LivingEntity owner)
+            {
+                cloud.setOwner(owner);
+            }
+
+            cloud.setRadius(radius);
+            cloud.setRadiusOnUse(0.0F);
+            cloud.setRadiusPerTick(0.001F);
+            cloud.setWaitTime(3 + this.random.nextInt(8));
+            cloud.setDuration(GAS_CLOUD_DURATION_TICKS);
+
+            cloud.addEffect(new MobEffectInstance(
+                    MobEffects.POISON,
+                    600,
+                    5
+            ));
+
+            cloud.addEffect(new MobEffectInstance(
+                    MobEffects.CONFUSION,
+                    600,
+                    0
+            ));
+
+            // НЕ встановлюємо партікли тут — це буде в spawnRandomGasParticles()
+            // Замість ParticleTypes.SNEEZE встановлюємо null або нічого не робимо
+            // cloud.setParticle(ParticleTypes.SNEEZE); // ВИДАЛЕНО
+
+            this.level().addFreshEntity(cloud);
+        }
+    }
+
+/**
+ * Нова система газу на базі noise-патерну.
+ * Частинки спавняться як "щільні області хвилі", а не випадково.
+ */
+private void spawnRandomGasParticles()
+{
+    // 🔥 дуже повільний глобальний темп спавну
+    if (this.random.nextFloat() < 0.85F)
+    {
+        return;
+    }
+
+    // -----------------------------------
+    // 🌫 NOISE TIME (псевдо-час хвилі)
+    // -----------------------------------
+    double time = this.level().getGameTime() * 0.02D;
+
+    // -----------------------------------
+    // 🌫 центральна точка газу
+    // -----------------------------------
+    double centerX = this.getX();
+    double centerY = this.getY();
+    double centerZ = this.getZ();
+
+    // -----------------------------------
+    // 🌫 кількість "семплів поля"
+    // -----------------------------------
+    int samples = 6 + this.random.nextInt(4);
+
+    for (int i = 0; i < samples; i++)
+    {
+        double angle = (Math.PI * 2.0D) * (i / (double) samples);
+
+        // -----------------------------------
+        // 🌫 NOISE-радіус (хвиля замість кола)
+        // -----------------------------------
+        double wave =
+                Math.sin(angle * 2.0D + time) * 0.5D +
+                Math.cos(angle * 3.0D - time * 1.3D) * 0.5D;
+
+        double baseRadius =
+                GAS_CLOUD_RADIUS * (0.4D + wave * 0.4D);
+
+        // -----------------------------------
+        // 🌫 позиція в полі
+        // -----------------------------------
+        double x =
+                centerX + Math.cos(angle) * baseRadius;
+
+        double z =
+                centerZ + Math.sin(angle) * baseRadius;
+
+        // -----------------------------------
+        // 🌫 вертикальний noise (низький газ)
+        // -----------------------------------
+        double y =
+                centerY +
+                (Math.sin(time + i) * 0.15D) +
+                this.random.nextDouble() * 0.1D;
+
+        // -----------------------------------
+        // 🌫 ще менше руху (майже статичний газ)
+        // -----------------------------------
+        double vx =
+                Math.sin(time + i) * 0.002D;
+
+        double vy =
+                -0.002D;
+
+        double vz =
+                Math.cos(time + i) * 0.002D;
+
+        this.level().addParticle(
+                ParticleTypes.SNEEZE,
+                x, y, z,
+                vx, vy, vz
+        );
+    }
+
+    // -----------------------------------
+    // 🌫 рідкісні "сплески" (деталі життя газу)
+    // -----------------------------------
+    if (this.random.nextFloat() < 0.2F)
+    {
+        spawnGasMicroBursts();
+    }
+}
+
+/**
+ * Дуже рідкі мікро-сплески газу (локальні згустки).
+ */
+private void spawnGasMicroBursts()
+{
+    int count = 2 + this.random.nextInt(2);
+
+    for (int i = 0; i < count; i++)
+    {
+        double x =
+                this.getX() + (this.random.nextGaussian() * 0.2D);
+
+        double y =
+                this.getY() + this.random.nextDouble() * 0.15D;
+
+        double z =
+                this.getZ() + (this.random.nextGaussian() * 0.2D);
+
+        this.level().addParticle(
+                ParticleTypes.SNEEZE,
+                x, y, z,
+                0.0D,
+                -0.002D,
+                0.0D
+        );
+    }
+}
+
+    /**
+     * Створює велику безшкідливу димову хмару для задимлення (SMOKE гранат).
+     * На відміну від газової гранати, не має ефектів отруєння/нудоти.
+     */
+    private void spawnSmokeCloud()
+    {
+        for (int i = 0; i < SMOKE_CLOUD_VERTICAL_LAYERS; i++)
+        {
+            double yOffset = i * SMOKE_CLOUD_LAYER_OFFSET_Y;
             AreaEffectCloud cloud = new AreaEffectCloud(
                     this.level(),
                     this.getX(),
@@ -301,21 +540,41 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             {
                 cloud.setOwner(owner);
             }
-            cloud.setRadius(GAS_CLOUD_RADIUS);
-            cloud.setRadiusOnUse(0.0F);          // не зменшується від використання
-            cloud.setRadiusPerTick(0.0F);        // тримає радіус увесь час життя
+            cloud.setRadius(SMOKE_CLOUD_RADIUS);
+            cloud.setRadiusOnUse(0.0F);
+            cloud.setRadiusPerTick(0.0F);
             cloud.setWaitTime(10);
-            cloud.setDuration(GAS_CLOUD_DURATION_TICKS);
-            // Отруєння — кожні 25 тіків може накладатися; setReapplicationDelay = 25 за замовч.
-            cloud.addEffect(new MobEffectInstance(MobEffects.POISON, 120, 1));
-            // Тошнота (Nausea) — «хитає» камеру жертви, поки вона у хмарі.
-            // Тривалість трохи більша за reapplicationDelay (25), щоб ефект стабільно
-            // поновлювався, але швидко затухав після виходу з хмари.
-            cloud.addEffect(new MobEffectInstance(MobEffects.CONFUSION, 80, 0));
-            // Зеленувата димна хмара.
-            cloud.setParticle(ParticleTypes.SNEEZE);
+            cloud.setDuration(SMOKE_CLOUD_DURATION_TICKS);
+            // Дим без шкідливих ефектів - просто візуальний ефект
+            cloud.setParticle(ParticleTypes.SMOKE);
 
             this.level().addFreshEntity(cloud);
+        }
+    }
+
+    /**
+     * Генерує випадкові сіро-білі частинки дима у великій зоні.
+     */
+    private void spawnRandomSmokeParticles()
+    {
+        int particleCount = 120;
+        for (int i = 0; i < particleCount; i++)
+        {
+            // Випадкова позиція у межах більшої зони
+            double angle = this.random.nextDouble() * Math.PI * 2;
+            double distance = this.random.nextDouble() * SMOKE_CLOUD_RADIUS;
+            double height = this.random.nextDouble() * (SMOKE_CLOUD_VERTICAL_LAYERS * SMOKE_CLOUD_LAYER_OFFSET_Y);
+
+            double x = this.getX() + Math.cos(angle) * distance;
+            double y = this.getY() + height;
+            double z = this.getZ() + Math.sin(angle) * distance;
+
+            // Уповільнена швидкість для реалістичного розповсюдження дима
+            double vx = (this.random.nextDouble() - 0.5D) * 0.15D;
+            double vy = this.random.nextDouble() * 0.05D;
+            double vz = (this.random.nextDouble() - 0.5D) * 0.15D;
+
+            this.level().addParticle(ParticleTypes.SMOKE, x, y, z, vx, vy, vz);
         }
     }
 
@@ -335,9 +594,10 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     /** Тип гранати — визначає поведінку вибуху та item-модель для рендеру. */
     public enum Type
     {
-        HE,    // звичайна (granade)
+        HE,    // звичайна (grenade)
         DEMO,  // граната з ручкою
-        GAS;   // газова
+        GAS,   // газова
+        SMOKE; // димова
 
         public Item getItem()
         {
@@ -346,6 +606,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                 case HE -> CQCItems.GRENADE.get();
                 case DEMO -> CQCItems.DEMO_GRENADE.get();
                 case GAS -> CQCItems.GAS_GRENADE.get();
+                case SMOKE -> CQCItems.SMOKE_GRENADE.get();
             };
         }
     }

@@ -26,9 +26,13 @@
   "item.closequartercombat.trenchcoat_chest_x": "Trenchcoat X",
   "item.closequartercombat.trenchcoat_legs_x": "Trenchcoat Pants X",
 
+  "item.closequartercombat.lobster_helmet": "Warden Helmet",
+  "item.closequartercombat.lobster_chest": "Warden Armor",
+
   "item.closequartercombat.grenade": "Grenade",
   "item.closequartercombat.demo_grenade": "Demolition Grenade",
   "item.closequartercombat.gas_grenade": "Gas Grenade",
+  "item.closequartercombat.smoke_grenade": "Smoke Grenade",
 
   "entity.closequartercombat.thrown_grenade": "Thrown Grenade"
 }
