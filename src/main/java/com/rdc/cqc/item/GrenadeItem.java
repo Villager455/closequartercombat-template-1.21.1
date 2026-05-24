@@ -167,7 +167,7 @@ public class GrenadeItem extends Item
                 level.explode(
                         null,
                         player.getX(), player.getY() + 0.5D, player.getZ(),
-                        1.2F,
+                        2.4F,
                         Level.ExplosionInteraction.TNT
                 );
             }

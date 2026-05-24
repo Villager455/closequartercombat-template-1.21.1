@@ -55,7 +55,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     private static final float HE_EXPLOSION_RADIUS = 6.0F;
 
     /** Радіус вибуху для DEMO гранати (меньший за TNT). */
-    private static final float DEMO_EXPLOSION_RADIUS = 1.2F;
+    private static final float DEMO_EXPLOSION_RADIUS = 2.4F;
 
     /** Радіус вибуху для GIGA гранати (як TNT). */
     private static final float GIGA_EXPLOSION_RADIUS = 4.0F;
@@ -684,4 +684,4 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             };
         }
     }
-}
+}   
