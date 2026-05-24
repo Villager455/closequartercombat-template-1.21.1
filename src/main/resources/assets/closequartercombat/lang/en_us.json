@@ -29,10 +29,11 @@
   "item.closequartercombat.lobster_helmet": "Warden Helmet",
   "item.closequartercombat.lobster_chest": "Warden Armor",
 
-  "item.closequartercombat.grenade": "Grenade",
-  "item.closequartercombat.demo_grenade": "Demolition Grenade",
+  "item.closequartercombat.grenade": "Fragmentation grenade",
+  "item.closequartercombat.demo_grenade": "High explosive grenade",
   "item.closequartercombat.gas_grenade": "Gas Grenade",
   "item.closequartercombat.smoke_grenade": "Smoke Grenade",
+  "item.closequartercombat.giga_grenade": "Giga Grenade",
 
   "entity.closequartercombat.thrown_grenade": "Thrown Grenade"
 }

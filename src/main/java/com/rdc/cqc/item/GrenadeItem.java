@@ -156,12 +156,33 @@ public class GrenadeItem extends Item
     {
         switch (this.type)
         {
-            case HE, DEMO -> level.explode(
-                    null,
-                    player.getX(), player.getY() + 0.5D, player.getZ(),
-                    3.0F,
-                    Level.ExplosionInteraction.TNT
-            );
+            case HE ->
+            {
+                // HE граната: урагу від осколків без ламання блоків
+                ThrownGrenadeEntity.damageAndSpawnShrapnel(level, player.getX(), player.getY() + 0.5D, player.getZ(), 6.0F, 70.0F, player);
+            }
+            case DEMO ->
+            {
+                // Демо граната: повний вибух з ламанням блоків (мала сила)
+                level.explode(
+                        null,
+                        player.getX(), player.getY() + 0.5D, player.getZ(),
+                        1.2F,
+                        Level.ExplosionInteraction.TNT
+                );
+            }
+            case GIGA ->
+            {
+                // Гіга граната: потужний вибух з ламанням блоків
+                level.explode(
+                        null,
+                        player.getX(), player.getY() + 0.5D, player.getZ(),
+                        4.0F,
+                        Level.ExplosionInteraction.TNT
+                );
+                // Також наносимо урагу від осколків
+                ThrownGrenadeEntity.damageAndSpawnShrapnel(level, player.getX(), player.getY() + 0.5D, player.getZ(), 4.0F, 70.0F, player);
+            }
             case GAS ->
             {
                 // Спавнимо газову хмару в позиції гравця — без entity, через

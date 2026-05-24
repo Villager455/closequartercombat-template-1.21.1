@@ -69,6 +69,7 @@ public class CloseQuarterCombat
                         // Гранати
                         output.accept(CQCItems.GRENADE.get());
                         output.accept(CQCItems.DEMO_GRENADE.get());
+                        output.accept(CQCItems.GIGA_GRENADE.get());
                         output.accept(CQCItems.GAS_GRENADE.get());
                         output.accept(CQCItems.SMOKE_GRENADE.get());
                     })

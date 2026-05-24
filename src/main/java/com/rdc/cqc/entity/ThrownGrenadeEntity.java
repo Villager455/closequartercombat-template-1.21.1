@@ -52,7 +52,13 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     private int fuse = 60;
 
     /** Радіус вибуху для HE/демо гранат (TNT = 4.0F). */
-    private static final float HE_EXPLOSION_RADIUS = 3.0F;
+    private static final float HE_EXPLOSION_RADIUS = 6.0F;
+
+    /** Радіус вибуху для DEMO гранати (меньший за TNT). */
+    private static final float DEMO_EXPLOSION_RADIUS = 1.2F;
+
+    /** Радіус вибуху для GIGA гранати (як TNT). */
+    private static final float GIGA_EXPLOSION_RADIUS = 4.0F;
 
     /** Радіус газової хмари (стартовий). */
     private static final float GAS_CLOUD_RADIUS = 7.0F;
@@ -261,6 +267,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
 
     /**
      * Вибух гранати відповідно до типу. Викликається лише на сервері.
+     * ВИПРАВЛЕНО: частинки тепер правильно синхронізуються на клієнти через levelEvent
      */
     private void detonate()
     {
@@ -272,7 +279,14 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             case HE ->
             {
                 // HE граната: шкода від осколків без ламання блоків
-                damageEntitiesInRadius(HE_EXPLOSION_RADIUS, 10.0F);
+                spawnShrapnelAndDamage(HE_EXPLOSION_RADIUS, 70.0F);
+
+                // 🔥 КЛЮЧ: Синхронізуємо частинки на клієнти через levelEvent
+                // Код 2009 = EXPLOSION_LARGE_SMOKE (як TNT) — автоматично синхронізується
+                this.level().levelEvent(2009,
+                        new net.minecraft.core.BlockPos((int)this.getX(), (int)this.getY(), (int)this.getZ()),
+                        0);
+
                 this.level().playSound(
                         null,
                         this.getX(), this.getY(), this.getZ(),
@@ -282,13 +296,29 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             }
             case DEMO ->
             {
-                // Демо граната: повний вибух з ламанням блоків
+                // Демо граната: повний вибух з ламанням блоків (мала сила - в 5 разів менше)
                 this.level().explode(
                         null,
                         this.getX(), this.getY(), this.getZ(),
-                        HE_EXPLOSION_RADIUS,
+                        DEMO_EXPLOSION_RADIUS,
                         Level.ExplosionInteraction.TNT
                 );
+            }
+            case GIGA ->
+            {
+                // Гіга граната: потужний вибух з ламанням блоків (сила динаміту)
+                this.level().explode(
+                        null,
+                        this.getX(), this.getY(), this.getZ(),
+                        GIGA_EXPLOSION_RADIUS,
+                        Level.ExplosionInteraction.TNT
+                );
+                // Також наносимо урагу від осколків
+                spawnShrapnelAndDamage(GIGA_EXPLOSION_RADIUS, 70.0F);
+                
+                this.level().levelEvent(2009,
+                        new net.minecraft.core.BlockPos((int)this.getX(), (int)this.getY(), (int)this.getZ()),
+                        0);
             }
             case GAS ->
             {
@@ -312,6 +342,62 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                         0.8F, 1.0F
                 );
             }
+        }
+    }
+
+    /**
+     * Спавнить осколки та наносить урагу всім живим істотам у радіусі.
+     * Емітує частинки осколків у всіх напрямках від центру вибуху.
+     */
+    private void spawnShrapnelAndDamage(float radius, float damage)
+    {
+        damageAndSpawnShrapnel(this.level(), this.getX(), this.getY(), this.getZ(), radius, damage, (LivingEntity) this.getOwner());
+    }
+
+    /**
+     * Статичний метод для ураження істот в радіусі вибуху від довільної позиції.
+     * Використовується як для кинутих гранат, так і для вибухів в руці.
+     *
+     * ВИПРАВЛЕНО: Відокремлено від спавнювання частинок
+     */
+    public static void damageAndSpawnShrapnel(Level level, double x, double y, double z,
+                                              float radius, float damage, LivingEntity thrower)
+    {
+        System.out.println("[GRENADE] damageAndSpawnShrapnel called at " + x + ", " + y + ", " + z + " with radius " + radius);
+
+        // Знаходимо все живі істоти в радіусі
+        List<LivingEntity> entities = level.getEntitiesOfClass(
+                LivingEntity.class,
+                new net.minecraft.world.phys.AABB(x - radius, y - radius, z - radius,
+                        x + radius, y + radius, z + radius)
+        );
+
+        System.out.println("[GRENADE] Found " + entities.size() + " entities in radius");
+
+        for (LivingEntity entity : entities)
+        {
+            double dist = entity.position().distanceTo(new Vec3(x, y, z));
+            if (dist > radius)
+            {
+                continue; // Entity too far
+            }
+
+            // Шкода зменшується з відстанню
+            float falloff = 1.0F - (float)(dist / radius);
+            float actualDamage = damage * falloff;
+
+            // Мінімум 1 урагу в центрі вибуху
+            if (actualDamage < 1.0F) actualDamage = 1.0F;
+
+            System.out.println("[GRENADE] Damaging entity " + entity.getName().getString() + " for " + actualDamage + " damage");
+
+            DamageSource src = level.damageSources().thrown(null, thrower);
+            entity.hurt(src, actualDamage);
+
+            // Легкий штовхач від вибуху
+            Vec3 entityPos = entity.position();
+            Vec3 direction = entityPos.subtract(x, y, z).normalize();
+            entity.knockback(0.5D * falloff, direction.x, direction.z);
         }
     }
 
@@ -354,18 +440,13 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     {
         for (int i = 0; i < GAS_CLOUD_VERTICAL_LAYERS; i++)
         {
-            double yOffset =
-                    i * (GAS_CLOUD_LAYER_OFFSET_Y * 0.4D);
+            double yOffset = i * (GAS_CLOUD_LAYER_OFFSET_Y * 0.4D);
 
-            double offsetX =
-                    (this.random.nextDouble() - 0.5D) * 1.6D;
+            double offsetX = (this.random.nextDouble() - 0.5D) * 1.6D;
 
-            double offsetZ =
-                    (this.random.nextDouble() - 0.5D) * 1.6D;
+            double offsetZ = (this.random.nextDouble() - 0.5D) * 1.6D;
 
-            float radius =
-                    GAS_CLOUD_RADIUS *
-                            (0.6F + this.random.nextFloat() * 0.6F);
+            float radius = GAS_CLOUD_RADIUS * (0.6F + this.random.nextFloat() * 0.6F);
 
             AreaEffectCloud cloud = new AreaEffectCloud(
                     this.level(),
@@ -397,129 +478,120 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                     0
             ));
 
-            // НЕ встановлюємо партікли тут — це буде в spawnRandomGasParticles()
-            // Замість ParticleTypes.SNEEZE встановлюємо null або нічого не робимо
-            // cloud.setParticle(ParticleTypes.SNEEZE); // ВИДАЛЕНО
-
             this.level().addFreshEntity(cloud);
         }
     }
 
-/**
- * Нова система газу на базі noise-патерну.
- * Частинки спавняться як "щільні області хвилі", а не випадково.
- */
-private void spawnRandomGasParticles()
-{
-    // 🔥 дуже повільний глобальний темп спавну
-    if (this.random.nextFloat() < 0.85F)
+    /**
+     * Нова система газу на базі noise-патерну.
+     * Частинки спавняться як "щільні області хвилі", а не випадково.
+     */
+    private void spawnRandomGasParticles()
     {
-        return;
+        // 🔥 дуже повільний глобальний темп спавну
+        if (this.random.nextFloat() < 0.85F)
+        {
+            return;
+        }
+
+        // -----------------------------------
+        // 🌫 NOISE TIME (псевдо-час хвилі)
+        // -----------------------------------
+        double time = this.level().getGameTime() * 0.02D;
+
+        // -----------------------------------
+        // 🌫 центральна точка газу
+        // -----------------------------------
+        double centerX = this.getX();
+        double centerY = this.getY();
+        double centerZ = this.getZ();
+
+        // -----------------------------------
+        // 🌫 кількість "семплів поля"
+        // -----------------------------------
+        int samples = 6 + this.random.nextInt(4);
+
+        for (int i = 0; i < samples; i++)
+        {
+            double angle = (Math.PI * 2.0D) * (i / (double) samples);
+
+            // -----------------------------------
+            // 🌫 NOISE-радіус (хвиля замість кола)
+            // -----------------------------------
+            double wave =
+                    Math.sin(angle * 2.0D + time) * 0.5D +
+                            Math.cos(angle * 3.0D - time * 1.3D) * 0.5D;
+
+            double baseRadius =
+                    GAS_CLOUD_RADIUS * (0.4D + wave * 0.4D);
+
+            // -----------------------------------
+            // 🌫 позиція в полі
+            // -----------------------------------
+            double x =
+                    centerX + Math.cos(angle) * baseRadius;
+
+            double z =
+                    centerZ + Math.sin(angle) * baseRadius;
+
+            // -----------------------------------
+            // 🌫 вертикальний noise (низький газ)
+            // -----------------------------------
+            double y =
+                    centerY +
+                            (Math.sin(time + i) * 0.15D) +
+                            this.random.nextDouble() * 0.1D;
+
+            // -----------------------------------
+            // 🌫 ще менше руху (майже статичний газ)
+            // -----------------------------------
+            double vx =
+                    Math.sin(time + i) * 0.002D;
+
+            double vy =
+                    -0.002D;
+
+            double vz =
+                    Math.cos(time + i) * 0.002D;
+
+            this.level().addParticle(
+                    ParticleTypes.SNEEZE,
+                    x, y, z,
+                    vx, vy, vz
+            );
+        }
+
+        // -----------------------------------
+        // 🌫 рідкісні "сплески" (деталі життя газу)
+        // -----------------------------------
+        if (this.random.nextFloat() < 0.2F)
+        {
+            spawnGasMicroBursts();
+        }
     }
 
-    // -----------------------------------
-    // 🌫 NOISE TIME (псевдо-час хвилі)
-    // -----------------------------------
-    double time = this.level().getGameTime() * 0.02D;
-
-    // -----------------------------------
-    // 🌫 центральна точка газу
-    // -----------------------------------
-    double centerX = this.getX();
-    double centerY = this.getY();
-    double centerZ = this.getZ();
-
-    // -----------------------------------
-    // 🌫 кількість "семплів поля"
-    // -----------------------------------
-    int samples = 6 + this.random.nextInt(4);
-
-    for (int i = 0; i < samples; i++)
+    /**
+     * Дуже рідкі мікро-сплески газу (локальні згустки).
+     */
+    private void spawnGasMicroBursts()
     {
-        double angle = (Math.PI * 2.0D) * (i / (double) samples);
+        int count = 2 + this.random.nextInt(2);
 
-        // -----------------------------------
-        // 🌫 NOISE-радіус (хвиля замість кола)
-        // -----------------------------------
-        double wave =
-                Math.sin(angle * 2.0D + time) * 0.5D +
-                Math.cos(angle * 3.0D - time * 1.3D) * 0.5D;
+        for (int i = 0; i < count; i++)
+        {
+            double x = this.getX() + (this.random.nextGaussian() * 0.2D);
+            double y = this.getY() + this.random.nextDouble() * 0.15D;
+            double z = this.getZ() + (this.random.nextGaussian() * 0.2D);
 
-        double baseRadius =
-                GAS_CLOUD_RADIUS * (0.4D + wave * 0.4D);
-
-        // -----------------------------------
-        // 🌫 позиція в полі
-        // -----------------------------------
-        double x =
-                centerX + Math.cos(angle) * baseRadius;
-
-        double z =
-                centerZ + Math.sin(angle) * baseRadius;
-
-        // -----------------------------------
-        // 🌫 вертикальний noise (низький газ)
-        // -----------------------------------
-        double y =
-                centerY +
-                (Math.sin(time + i) * 0.15D) +
-                this.random.nextDouble() * 0.1D;
-
-        // -----------------------------------
-        // 🌫 ще менше руху (майже статичний газ)
-        // -----------------------------------
-        double vx =
-                Math.sin(time + i) * 0.002D;
-
-        double vy =
-                -0.002D;
-
-        double vz =
-                Math.cos(time + i) * 0.002D;
-
-        this.level().addParticle(
-                ParticleTypes.SNEEZE,
-                x, y, z,
-                vx, vy, vz
-        );
+            this.level().addParticle(
+                    ParticleTypes.SNEEZE,
+                    x, y, z,
+                    0.0D,
+                    -0.002D,
+                    0.0D
+            );
+        }
     }
-
-    // -----------------------------------
-    // 🌫 рідкісні "сплески" (деталі життя газу)
-    // -----------------------------------
-    if (this.random.nextFloat() < 0.2F)
-    {
-        spawnGasMicroBursts();
-    }
-}
-
-/**
- * Дуже рідкі мікро-сплески газу (локальні згустки).
- */
-private void spawnGasMicroBursts()
-{
-    int count = 2 + this.random.nextInt(2);
-
-    for (int i = 0; i < count; i++)
-    {
-        double x =
-                this.getX() + (this.random.nextGaussian() * 0.2D);
-
-        double y =
-                this.getY() + this.random.nextDouble() * 0.15D;
-
-        double z =
-                this.getZ() + (this.random.nextGaussian() * 0.2D);
-
-        this.level().addParticle(
-                ParticleTypes.SNEEZE,
-                x, y, z,
-                0.0D,
-                -0.002D,
-                0.0D
-        );
-    }
-}
 
     /**
      * Створює велику безшкідливу димову хмару для задимлення (SMOKE гранат).
@@ -597,7 +669,8 @@ private void spawnGasMicroBursts()
         HE,    // звичайна (grenade)
         DEMO,  // граната з ручкою
         GAS,   // газова
-        SMOKE; // димова
+        SMOKE, // димова
+        GIGA;  // гіга граната
 
         public Item getItem()
         {
@@ -607,6 +680,7 @@ private void spawnGasMicroBursts()
                 case DEMO -> CQCItems.DEMO_GRENADE.get();
                 case GAS -> CQCItems.GAS_GRENADE.get();
                 case SMOKE -> CQCItems.SMOKE_GRENADE.get();
+                case GIGA -> CQCItems.GIGA_GRENADE.get();
             };
         }
     }

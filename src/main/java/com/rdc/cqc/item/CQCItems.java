@@ -216,6 +216,14 @@ public class CQCItems
             )
     );
 
+    public static final DeferredItem<Item> GIGA_GRENADE = ITEMS.register(
+            "giga_grenade",
+            () -> new GrenadeItem(
+                    new Item.Properties().stacksTo(1),
+                    ThrownGrenadeEntity.Type.GIGA
+            )
+    );
+
     /**
      * Повертає {@code true}, якщо у слоті голови — будь-який з варіантів протигазу
      * (звичайний / S / X). Використовується для оверлею та блокування зілль.

@@ -29,10 +29,11 @@
   "item.closequartercombat.lobster_helmet": "Шлем стража",
   "item.closequartercombat.lobster_chest": "Броня стража",
 
-  "item.closequartercombat.grenade": "Граната",
-  "item.closequartercombat.demo_grenade": "Осколочная граната",
+  "item.closequartercombat.grenade": "Осколочная граната",
+  "item.closequartercombat.demo_grenade": "Фугасная граната",
   "item.closequartercombat.gas_grenade": "Газовая граната",
   "item.closequartercombat.smoke_grenade": "Дымовая граната",
+  "item.closequartercombat.giga_grenade": "Гига граната",
 
   "entity.closequartercombat.thrown_grenade": "Брошенная граната"
 }
