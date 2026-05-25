@@ -1,6 +1,8 @@
 package com.rdc.cqc.item;
 
 import com.rdc.cqc.entity.ThrownGrenadeEntity;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -11,7 +13,10 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
+
+import java.util.List;
 
 /**
  * Предмет-граната. Працює у дві стадії:
@@ -45,6 +50,12 @@ public class GrenadeItem extends Item
     public ThrownGrenadeEntity.Type getGrenadeType()
     {
         return type;
+    }
+
+    @Override
+    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag)
+    {
+        tooltip.add(Component.translatable(getDescriptionId() + ".tooltip").withStyle(ChatFormatting.GRAY));
     }
 
     /**
@@ -197,9 +208,7 @@ public class GrenadeItem extends Item
             }
             case GAS ->
             {
-                // Спавнимо газову хмару в позиції гравця — без entity, через
-                // методи Level. Простіше — створюємо тимчасову гранату-сутність
-                // лише щоб виконати її spawnPoisonCloud-логіку через detonate().
+                // Створюємо тимчасову гранату-сутність, яка стане газовим емітером.
                 ThrownGrenadeEntity dummy = new ThrownGrenadeEntity(level, player, ThrownGrenadeEntity.Type.GAS);
                 dummy.setPos(player.getX(), player.getY() + 0.5D, player.getZ());
                 level.addFreshEntity(dummy);

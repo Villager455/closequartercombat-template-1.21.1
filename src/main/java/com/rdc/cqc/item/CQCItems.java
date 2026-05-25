@@ -26,6 +26,31 @@ public class CQCItems
     );
 
     // ============================
+    //      ІНГРЕДІЄНТИ КРАФТУ
+    // ============================
+    // Прості предмети без власної логіки. Використовуються як компоненти майбутніх рецептів гранат.
+
+    public static final DeferredItem<Item> FUSE = ITEMS.register(
+            "fuse",
+            () -> new Item(new Item.Properties())
+    );
+
+    public static final DeferredItem<Item> CONTACT_DETONATOR = ITEMS.register(
+            "contact_detonator",
+            () -> new Item(new Item.Properties())
+    );
+
+    public static final DeferredItem<Item> EXPLOSIVE_GRENADE_PART = ITEMS.register(
+            "explosive_grenade_part",
+            () -> new Item(new Item.Properties())
+    );
+
+    public static final DeferredItem<Item> HEAT_GRENADE_PART = ITEMS.register(
+            "heat_grenade_part",
+            () -> new Item(new Item.Properties())
+    );
+
+    // ============================
     //          ГРАНАТИ
     // ============================
     // Кидаються з ПКМ. Через 3 секунди вибух (HE/DEMO), газова хмара (GAS) або дим (SMOKE).

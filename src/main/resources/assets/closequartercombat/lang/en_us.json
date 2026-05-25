@@ -12,12 +12,23 @@
   "closequartercombat.configuration.magicNumber": "Magic Number",
 
   "item.closequartercombat.gas_mask": "Gas Mask",
+  "item.closequartercombat.gas_mask.tooltip": "Protects against gas grenade effects.",
+
+  "item.closequartercombat.fuse": "Fuse",
+  "item.closequartercombat.contact_detonator": "Contact Detonator",
+  "item.closequartercombat.explosive_grenade_part": "Grenade Warhead",
+  "item.closequartercombat.heat_grenade_part": "Shaped Charge Grenade Part",
 
   "item.closequartercombat.grenade": "Fragmentation grenade",
+  "item.closequartercombat.grenade.tooltip": "Scatters shrapnel across a wide area.",
   "item.closequartercombat.demo_grenade": "High explosive grenade",
+  "item.closequartercombat.demo_grenade.tooltip": "Creates a block-breaking explosion.",
   "item.closequartercombat.gas_grenade": "Gas Grenade",
+  "item.closequartercombat.gas_grenade.tooltip": "Releases poisonous gas low to the ground.",
   "item.closequartercombat.smoke_grenade": "Smoke Grenade",
+  "item.closequartercombat.smoke_grenade.tooltip": "Creates a dense smoke screen.",
   "item.closequartercombat.giga_grenade": "Giga Grenade",
+  "item.closequartercombat.giga_grenade.tooltip": "A heavy grenade with a very powerful blast.",
 
   "entity.closequartercombat.thrown_grenade": "Thrown Grenade"
 }

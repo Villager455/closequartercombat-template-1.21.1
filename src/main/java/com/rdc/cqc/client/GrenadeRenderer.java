@@ -51,7 +51,7 @@ public class GrenadeRenderer extends EntityRenderer<ThrownGrenadeEntity>
                        MultiBufferSource buffer,
                        int packedLight)
     {
-        if (entity.isSmokeEmitting())
+        if (entity.isSmokeEmitting() || entity.isGasEmitting())
         {
             return;
         }

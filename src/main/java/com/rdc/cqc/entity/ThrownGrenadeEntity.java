@@ -2,9 +2,12 @@ package com.rdc.cqc.entity;
 
 import com.rdc.cqc.item.CQCItems;
 import java.util.List;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
@@ -15,12 +18,12 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
-import net.minecraft.world.entity.AreaEffectCloud;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.ThrowableItemProjectile;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
@@ -64,12 +67,17 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     private static final EntityDataAccessor<Boolean> DATA_SMOKE_EMITTING =
             SynchedEntityData.defineId(ThrownGrenadeEntity.class, EntityDataSerializers.BOOLEAN);
 
+    /** Gas-граната після детонації стає невидимим емітером низького газового шару. */
+    private static final EntityDataAccessor<Boolean> DATA_GAS_EMITTING =
+            SynchedEntityData.defineId(ThrownGrenadeEntity.class, EntityDataSerializers.BOOLEAN);
+
     /** Залишок фьюзу в тіках. Не синхронізується (логіка лише на сервері). */
     private int fuse = 60;
     private int smokeEmitterAge = 0;
+    private int gasEmitterAge = 0;
 
     /** Радіус ураження для HE гранати. */
-    public static final float HE_EXPLOSION_RADIUS = 7.5F;
+    public static final float HE_EXPLOSION_RADIUS = 10.0F;
 
     /** Максимальна шкода від осколків HE гранати в центрі вибуху. */
     public static final float HE_SHRAPNEL_DAMAGE = 90.0F;
@@ -84,17 +92,21 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     private static final float GAS_CLOUD_RADIUS = 7.0F;
 
     /** Тривалість газової хмари у тіках (20 с = 400). */
-    private static final int GAS_CLOUD_DURATION_TICKS = 400;
+    private static final int GAS_CLOUD_DURATION_TICKS = 600;
 
-    /** Висота "газового стовпа" — кількість шарів AreaEffectCloud по вертикалі. */
-    private static final int GAS_CLOUD_VERTICAL_LAYERS = 3;
-    private static final double GAS_CLOUD_LAYER_OFFSET_Y = 1.4D;
+    /** Час розростання газового шару до повного радіуса (5 с). */
+    private static final int GAS_CLOUD_GROWTH_TICKS = 100;
+
+    /** Газ стелиться низько над підлогою. */
+    private static final double GAS_CLOUD_HEIGHT = 0.75D;
+    private static final double GAS_SURFACE_SCAN_UP = 4.0D;
+    private static final double GAS_SURFACE_SCAN_DOWN = 3.0D;
 
     /** Радіус димової завіси після розростання. */
-    private static final float SMOKE_CLOUD_RADIUS = 8.0F;
+    private static final float SMOKE_CLOUD_RADIUS = 6.0F;
 
     /** Тривалість димової хмари у тіках (30 с = 600). */
-    private static final int SMOKE_CLOUD_DURATION_TICKS = 600;
+    private static final int SMOKE_CLOUD_DURATION_TICKS = 1200;
 
     /** Час розростання димової завіси до повного радіуса (5 с). */
     private static final int SMOKE_CLOUD_GROWTH_TICKS = 100;
@@ -120,6 +132,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         builder.define(DATA_TYPE, Type.HE.ordinal());
         builder.define(DATA_RESTING, Boolean.FALSE);
         builder.define(DATA_SMOKE_EMITTING, Boolean.FALSE);
+        builder.define(DATA_GAS_EMITTING, Boolean.FALSE);
     }
 
     /** Чи граната зараз лежить (швидкість майже нуль). Використовується клієнтом для зупинки обертання. */
@@ -131,6 +144,11 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     public boolean isSmokeEmitting()
     {
         return this.entityData.get(DATA_SMOKE_EMITTING);
+    }
+
+    public boolean isGasEmitting()
+    {
+        return this.entityData.get(DATA_GAS_EMITTING);
     }
 
     /** Виставляє залишок фьюзу (у тіках). Використовується для «винесення» залишку з активованої гранати-предмета. */
@@ -195,6 +213,22 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             return;
         }
 
+        if (isGasEmitting())
+        {
+            if (!this.level().isClientSide())
+            {
+                this.setDeltaMovement(Vec3.ZERO);
+                spawnGasEmitterTick();
+                applyGasEffectsTick();
+                this.gasEmitterAge++;
+                if (this.gasEmitterAge >= GAS_CLOUD_DURATION_TICKS)
+                {
+                    this.discard();
+                }
+            }
+            return;
+        }
+
         // Лічильник + вибух + перерахунок resting-стану — лише на сервері.
         if (!this.level().isClientSide())
         {
@@ -211,7 +245,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             {
                 Type type = getGrenadeType();
                 detonate();
-                if (type != Type.SMOKE)
+                if (type != Type.SMOKE && type != Type.GAS)
                 {
                     this.discard();
                 }
@@ -374,8 +408,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             }
             case GAS ->
             {
-                spawnPoisonCloud();
-                spawnGasPlumeParticles();
+                startGasEmitter();
                 this.level().playSound(
                         null,
                         this.getX(), this.getY(), this.getZ(),
@@ -418,7 +451,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     }
 
     /**
-     * Короткі димові "штрихи" від центру вибуху назовні, щоб HE виглядала як осколкова.
+     * Димові "штрихи" від центру вибуху назовні, щоб HE виглядала як осколкова.
      */
     public static void spawnShrapnelSmokeBurst(Level level, double x, double y, double z,
                                                float radius, RandomSource random)
@@ -429,7 +462,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         }
 
         int rays = 34;
-        int pointsPerRay = 4;
+        int pointsPerRay = 8;
 
         for (int i = 0; i < rays; i++)
         {
@@ -442,7 +475,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                     Math.sin(yaw) * horizontal
             ).normalize();
 
-            double length = radius * (0.35D + random.nextDouble() * 0.35D);
+            double length = radius * (0.8D + random.nextDouble() * 0.8D);
             for (int point = 1; point <= pointsPerRay; point++)
             {
                 double progress = point / (double) pointsPerRay;
@@ -488,6 +521,11 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                 continue; // Entity too far
             }
 
+            if (!canShrapnelReach(level, new Vec3(x, y, z), entity))
+            {
+                continue;
+            }
+
             // Шкода зменшується з відстанню
             float falloff = 1.0F - (float)(dist / radius);
             float actualDamage = damage * falloff;
@@ -524,6 +562,11 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             double dist = this.distanceTo(entity);
             if (dist > radius) continue;
 
+            if (!canShrapnelReach(this.level(), this.position(), entity))
+            {
+                continue;
+            }
+
             // Шкода зменшується з відстанню
             float falloff = 1.0F - (float)(dist / radius);
             float actualDamage = damage * falloff;
@@ -537,60 +580,33 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         }
     }
 
-    /**
-     * Створює важку отруйну газову хмару, яка стелиться по землі
-     * та утворює нерівномірні токсичні згустки.
-     * Висновок: створює лише AreaEffectCloud, БЕЗ партіклів.
-     */
-    private void spawnPoisonCloud()
+    private static boolean canShrapnelReach(Level level, Vec3 origin, LivingEntity entity)
     {
-        for (int i = 0; i < GAS_CLOUD_VERTICAL_LAYERS; i++)
-        {
-            double yOffset = i * (GAS_CLOUD_LAYER_OFFSET_Y * 0.4D);
+        double targetX = entity.getX();
+        double targetY = entity.getY();
+        double targetZ = entity.getZ();
 
-            double offsetX = (this.random.nextDouble() - 0.5D) * 1.6D;
-
-            double offsetZ = (this.random.nextDouble() - 0.5D) * 1.6D;
-
-            float radius = GAS_CLOUD_RADIUS * (0.6F + this.random.nextFloat() * 0.6F);
-
-            AreaEffectCloud cloud = new AreaEffectCloud(
-                    this.level(),
-                    this.getX() + offsetX,
-                    this.getY() + yOffset,
-                    this.getZ() + offsetZ
-            );
-
-            if (this.getOwner() instanceof LivingEntity owner)
-            {
-                cloud.setOwner(owner);
-            }
-
-            cloud.setRadius(radius);
-            cloud.setRadiusOnUse(0.0F);
-            cloud.setRadiusPerTick(0.001F);
-            cloud.setWaitTime(3 + this.random.nextInt(8));
-            cloud.setDuration(GAS_CLOUD_DURATION_TICKS);
-
-            cloud.addEffect(new MobEffectInstance(
-                    MobEffects.POISON,
-                    600,
-                    5
-            ));
-
-            cloud.addEffect(new MobEffectInstance(
-                    MobEffects.CONFUSION,
-                    600,
-                    0
-            ));
-
-            this.level().addFreshEntity(cloud);
-        }
+        return hasClearShrapnelPath(level, origin, entity, new Vec3(targetX, entity.getEyeY(), targetZ))
+                || hasClearShrapnelPath(level, origin, entity, new Vec3(targetX, targetY + entity.getBbHeight() * 0.5D, targetZ))
+                || hasClearShrapnelPath(level, origin, entity, new Vec3(targetX, targetY + 0.2D, targetZ));
     }
 
-    private void spawnGasPlumeParticles()
+    private static boolean hasClearShrapnelPath(Level level, Vec3 origin, LivingEntity entity, Vec3 target)
     {
-        spawnRisingPlumeParticles(ParticleTypes.SNEEZE, ParticleTypes.WHITE_SMOKE, 95, 5.6D, 1.15D, 0.055D);
+        BlockHitResult hit = level.clip(new ClipContext(
+                origin,
+                target,
+                ClipContext.Block.COLLIDER,
+                ClipContext.Fluid.NONE,
+                entity
+        ));
+
+        if (hit.getType() == HitResult.Type.MISS)
+        {
+            return true;
+        }
+
+        return origin.distanceToSqr(hit.getLocation()) >= origin.distanceToSqr(target) - 0.25D;
     }
 
     private void startSmokeEmitter()
@@ -598,6 +614,15 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         this.entityData.set(DATA_SMOKE_EMITTING, Boolean.TRUE);
         this.entityData.set(DATA_RESTING, Boolean.TRUE);
         this.smokeEmitterAge = 0;
+        this.setNoGravity(true);
+        this.setDeltaMovement(Vec3.ZERO);
+    }
+
+    private void startGasEmitter()
+    {
+        this.entityData.set(DATA_GAS_EMITTING, Boolean.TRUE);
+        this.entityData.set(DATA_RESTING, Boolean.TRUE);
+        this.gasEmitterAge = 0;
         this.setNoGravity(true);
         this.setDeltaMovement(Vec3.ZERO);
     }
@@ -612,7 +637,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         double growth = Math.min(1.0D, this.smokeEmitterAge / (double) SMOKE_CLOUD_GROWTH_TICKS);
         double easedGrowth = growth * growth * (3.0D - 2.0D * growth);
         double radius = 0.25D + SMOKE_CLOUD_RADIUS * easedGrowth;
-        int particles = 4 + (int) (18 * easedGrowth);
+        int particles = 8 + (int) (34 * easedGrowth);
 
         for (int i = 0; i < particles; i++)
         {
@@ -639,47 +664,103 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         }
     }
 
-    private void spawnRisingPlumeParticles(net.minecraft.core.particles.SimpleParticleType smallParticle,
-                                           net.minecraft.core.particles.SimpleParticleType largeParticle,
-                                           int particleCount,
-                                           double plumeHeight,
-                                           double maxWaverRadius,
-                                           double upwardSpeed)
+    private void spawnGasEmitterTick()
     {
         if (!(this.level() instanceof ServerLevel serverLevel))
         {
             return;
         }
 
-        double centerX = this.getX();
-        double centerY = this.getY() + 0.15D;
-        double centerZ = this.getZ();
-        double timeSeed = this.random.nextDouble() * Math.PI * 2.0D;
+        double growth = Math.min(1.0D, this.gasEmitterAge / (double) GAS_CLOUD_GROWTH_TICKS);
+        double easedGrowth = growth * growth * (3.0D - 2.0D * growth);
+        double radius = 0.2D + GAS_CLOUD_RADIUS * easedGrowth;
+        int particles = 2 + (int) (7 * easedGrowth);
 
-        for (int i = 0; i < particleCount; i++)
+        for (int i = 0; i < particles; i++)
         {
-            double progress = i / (double) Math.max(1, particleCount - 1);
-            double height = progress * plumeHeight;
-            double waverRadius = maxWaverRadius * progress * progress;
-            double angle = timeSeed + progress * Math.PI * 5.0D + this.random.nextGaussian() * 0.35D;
-            double wobble = Math.sin(progress * Math.PI * 6.0D + timeSeed) * 0.35D;
+            double angle = this.random.nextDouble() * Math.PI * 2.0D;
+            double distance = Math.sqrt(this.random.nextDouble()) * radius;
+            double wave = Math.sin((this.gasEmitterAge + i * 17) * 0.12D) * 0.25D * easedGrowth;
 
-            double x = centerX + Math.cos(angle) * (waverRadius + wobble * progress);
-            double y = centerY + height + this.random.nextDouble() * 0.25D;
-            double z = centerZ + Math.sin(angle) * (waverRadius - wobble * progress);
+            double x = this.getX() + Math.cos(angle) * distance + Math.cos(angle + Math.PI * 0.5D) * wave;
+            double z = this.getZ() + Math.sin(angle) * distance + Math.sin(angle + Math.PI * 0.5D) * wave;
+            double surfaceY = findGasSurfaceY(x, z);
+            if (Double.isNaN(surfaceY))
+            {
+                continue;
+            }
 
-            double vx = Math.cos(angle + Math.PI * 0.5D) * 0.015D * progress + this.random.nextGaussian() * 0.01D;
-            double vy = upwardSpeed * (0.65D + progress * 0.9D);
-            double vz = Math.sin(angle + Math.PI * 0.5D) * 0.015D * progress + this.random.nextGaussian() * 0.01D;
+            double y = surfaceY + this.random.nextDouble() * GAS_CLOUD_HEIGHT;
+
+            double vx = Math.cos(angle) * 0.012D * easedGrowth + this.random.nextGaussian() * 0.006D;
+            double vy = this.random.nextDouble() * 0.006D;
+            double vz = Math.sin(angle) * 0.012D * easedGrowth + this.random.nextGaussian() * 0.006D;
 
             serverLevel.sendParticles(
-                    progress < 0.42D ? smallParticle : largeParticle,
+                    ParticleTypes.SNEEZE,
                     x, y, z,
                     0,
                     vx, vy, vz,
                     1.0D
             );
         }
+    }
+
+    private void applyGasEffectsTick()
+    {
+        if (this.gasEmitterAge % 20 != 0)
+        {
+            return;
+        }
+
+        double growth = Math.min(1.0D, this.gasEmitterAge / (double) GAS_CLOUD_GROWTH_TICKS);
+        double easedGrowth = growth * growth * (3.0D - 2.0D * growth);
+        double radius = 0.2D + GAS_CLOUD_RADIUS * easedGrowth;
+
+        List<LivingEntity> entities = this.level().getEntitiesOfClass(
+                LivingEntity.class,
+                new net.minecraft.world.phys.AABB(
+                        this.getX() - radius, this.getY() - GAS_SURFACE_SCAN_DOWN, this.getZ() - radius,
+                        this.getX() + radius, this.getY() + GAS_SURFACE_SCAN_UP + 2.0D, this.getZ() + radius
+                )
+        );
+
+        for (LivingEntity entity : entities)
+        {
+            if (entity.position().distanceTo(new Vec3(this.getX(), entity.getY(), this.getZ())) > radius)
+            {
+                continue;
+            }
+
+            double surfaceY = findGasSurfaceY(entity.getX(), entity.getZ());
+            if (Double.isNaN(surfaceY) || entity.getY() < surfaceY - 0.25D || entity.getY() > surfaceY + 1.6D)
+            {
+                continue;
+            }
+
+            entity.addEffect(new MobEffectInstance(MobEffects.POISON, GAS_CLOUD_DURATION_TICKS, 4));
+            entity.addEffect(new MobEffectInstance(MobEffects.CONFUSION, GAS_CLOUD_DURATION_TICKS, 0));
+        }
+    }
+
+    private double findGasSurfaceY(double x, double z)
+    {
+        int blockX = Mth.floor(x);
+        int blockZ = Mth.floor(z);
+        int startY = Mth.floor(this.getY() + GAS_SURFACE_SCAN_UP);
+        int minY = Mth.floor(this.getY() - GAS_SURFACE_SCAN_DOWN);
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos(blockX, startY, blockZ);
+
+        for (int y = startY; y >= minY; y--)
+        {
+            pos.set(blockX, y, blockZ);
+            if (this.level().getBlockState(pos).isFaceSturdy(this.level(), pos, Direction.UP))
+            {
+                return y + 1.05D;
+            }
+        }
+
+        return Double.NaN;
     }
 
     /**

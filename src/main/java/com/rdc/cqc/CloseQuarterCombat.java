@@ -47,6 +47,12 @@ public class CloseQuarterCombat
                         // Протигаз
                         output.accept(CQCItems.GAS_MASK.get());
 
+                        // Інгредієнти
+                        output.accept(CQCItems.FUSE.get());
+                        output.accept(CQCItems.CONTACT_DETONATOR.get());
+                        output.accept(CQCItems.EXPLOSIVE_GRENADE_PART.get());
+                        output.accept(CQCItems.HEAT_GRENADE_PART.get());
+
                         // Гранати
                         output.accept(CQCItems.GRENADE.get());
                         output.accept(CQCItems.DEMO_GRENADE.get());

@@ -1,5 +1,7 @@
 package com.rdc.cqc.item;
 
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.stats.Stats;
@@ -9,7 +11,10 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
+
+import java.util.List;
 
 /**
  * Протигаз — звичайний предмет (НЕ броня), який можна надягати в слот голови.
@@ -38,6 +43,12 @@ public class GasMaskItem extends Item
     public EquipmentSlot getEquipmentSlot(ItemStack stack)
     {
         return EquipmentSlot.HEAD;
+    }
+
+    @Override
+    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag)
+    {
+        tooltip.add(Component.translatable(getDescriptionId() + ".tooltip").withStyle(ChatFormatting.GRAY));
     }
 
     @Override

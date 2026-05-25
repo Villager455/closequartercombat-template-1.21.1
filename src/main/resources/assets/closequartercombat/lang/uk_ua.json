@@ -12,12 +12,23 @@
   "closequartercombat.configuration.magicNumber": "Magic Number",
 
   "item.closequartercombat.gas_mask": "Протигаз",
+  "item.closequartercombat.gas_mask.tooltip": "Захищає від ефектів газової гранати.",
+
+  "item.closequartercombat.fuse": "Запал",
+  "item.closequartercombat.contact_detonator": "Контактний детонатор",
+  "item.closequartercombat.explosive_grenade_part": "Бойова частина гранати",
+  "item.closequartercombat.heat_grenade_part": "Кумулятивна частина гранати",
 
   "item.closequartercombat.grenade": "Осколкова граната",
+  "item.closequartercombat.grenade.tooltip": "Розкидає уламки у великій зоні.",
   "item.closequartercombat.demo_grenade": "Фугасна граната",
+  "item.closequartercombat.demo_grenade.tooltip": "Створює вибух, що руйнує блоки.",
   "item.closequartercombat.gas_grenade": "Газова граната",
+  "item.closequartercombat.gas_grenade.tooltip": "Випускає отруйний газ низько над землею.",
   "item.closequartercombat.smoke_grenade": "Димова граната",
+  "item.closequartercombat.smoke_grenade.tooltip": "Створює густу димову завісу.",
   "item.closequartercombat.giga_grenade": "Гіга граната",
+  "item.closequartercombat.giga_grenade.tooltip": "Важка граната з дуже потужним вибухом.",
 
   "entity.closequartercombat.thrown_grenade": "Кинута граната"
 }
