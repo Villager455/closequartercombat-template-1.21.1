@@ -59,9 +59,6 @@ public class GrenadeRenderer extends EntityRenderer<ThrownGrenadeEntity>
         // Масштаб (як у ванільного ThrownItemRenderer).
         poseStack.scale(MODEL_SCALE, MODEL_SCALE, MODEL_SCALE);
 
-        // Орієнтуємо модель «обличчям» до камери — щоб гранату було видно з будь-якого ракурсу.
-        poseStack.mulPose(this.entityRenderDispatcher.cameraOrientation());
-
         // Логіка обертання:
         //  • Якщо граната лежить (resting) — миттєвий поворот на 90° по X для ефекту
         //    «граната на боку». Це стосується ВСІХ типів.
@@ -72,22 +69,37 @@ public class GrenadeRenderer extends EntityRenderer<ThrownGrenadeEntity>
 
         if (entity.isResting())
         {
-            // Лежить — повернути на 90 градусів по X, та й все.
+            // Лежить у стабільній world-space позі, а не дивиться на камеру.
+            poseStack.mulPose(Axis.YP.rotationDegrees(stableRestingYaw(entity)));
             poseStack.mulPose(Axis.XP.rotationDegrees(90.0F));
         }
-        else if (shouldSpin)
+        else
         {
             Vec3 velocity = entity.getDeltaMovement();
             float speed = (float) velocity.length();
-            float spinMultiplier = grenadeType == ThrownGrenadeEntity.Type.GIGA ? GIGA_SPIN_MULTIPLIER : 1.0F;
-            float spinPerTick = (BASE_SPIN_DEG_PER_TICK + speed * SPIN_FROM_VELOCITY) * spinMultiplier;
-            float spinAngle = (entity.tickCount + partialTick) * spinPerTick;
 
-            // Обертаємо навколо осі X у view-space (горизонтальна вісь камери).
-            // Створює ефект «гранати, що перевертається через ноги».
-            poseStack.mulPose(Axis.XP.rotationDegrees(spinAngle));
+            if (speed > 0.01F)
+            {
+                float yaw = (float) Math.toDegrees(Math.atan2(velocity.x, velocity.z));
+                float pitch = (float) -Math.toDegrees(Math.atan2(velocity.y, velocity.horizontalDistance()));
+                poseStack.mulPose(Axis.YP.rotationDegrees(yaw));
+                poseStack.mulPose(Axis.XP.rotationDegrees(pitch));
+            }
+            else
+            {
+                poseStack.mulPose(Axis.YP.rotationDegrees(stableRestingYaw(entity)));
+            }
+
+            if (shouldSpin)
+            {
+                float spinMultiplier = grenadeType == ThrownGrenadeEntity.Type.GIGA ? GIGA_SPIN_MULTIPLIER : 1.0F;
+                float spinPerTick = (BASE_SPIN_DEG_PER_TICK + speed * SPIN_FROM_VELOCITY) * spinMultiplier;
+                float spinAngle = (entity.tickCount + partialTick) * spinPerTick;
+
+                // Обертаємо навколо локальної осі X, вже без camera-facing billboard.
+                poseStack.mulPose(Axis.XP.rotationDegrees(spinAngle));
+            }
         }
-        // Інакше (HE/GAS у польоті) — нічого не множимо, граната летить в статичній позі.
 
         // Рендеримо item-модель.
         this.itemRenderer.renderStatic(
@@ -103,6 +115,11 @@ public class GrenadeRenderer extends EntityRenderer<ThrownGrenadeEntity>
 
         poseStack.popPose();
         super.render(entity, entityYaw, partialTick, poseStack, buffer, packedLight);
+    }
+
+    private static float stableRestingYaw(ThrownGrenadeEntity entity)
+    {
+        return (entity.getId() * 47) % 360;
     }
 
     @Override
