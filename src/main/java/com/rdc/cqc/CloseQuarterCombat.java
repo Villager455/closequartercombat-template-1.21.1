@@ -55,7 +55,12 @@ public class CloseQuarterCombat
 
                         // Гранати
                         output.accept(CQCItems.FRAG_GRENADE.get());
+                        output.accept(CQCItems.AIRBURST_FRAG_GRENADE.get());
                         output.accept(CQCItems.HIGH_EXPLOSIVE_GRENADE.get());
+                        output.accept(CQCItems.SMALL_GRENADE.get());
+                        output.accept(CQCItems.IMPROVISED_GRENADE.get());
+                        output.accept(CQCItems.MOLOTOV.get());
+                        output.accept(CQCItems.INCENDIARY_GRENADE.get());
                         output.accept(CQCItems.IMPACT_GRENADE.get());
                         output.accept(CQCItems.SHAPED_CHARGE_GRENADE.get());
                         output.accept(CQCItems.MAGNETIC_GRENADE.get());
@@ -82,6 +87,8 @@ public class CloseQuarterCombat
 
         NeoForge.EVENT_BUS.addListener(CQCEvents::onMobEffectApplicable);
         NeoForge.EVENT_BUS.addListener(CQCEvents::onLivingEquipmentChange);
+        NeoForge.EVENT_BUS.addListener(CQCEvents::onRightClickBlock);
+        NeoForge.EVENT_BUS.addListener(CQCEvents::onRightClickItem);
 
         LOGGER.info("Simple Grenades loaded!");
     }

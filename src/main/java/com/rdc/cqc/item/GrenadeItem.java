@@ -7,6 +7,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.stats.Stats;
+import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.Entity;
@@ -38,6 +39,8 @@ public class GrenadeItem extends Item
 {
     /** Стартовий фьюз від моменту висмикування чеки. */
     public static final int DEFAULT_FUSE_TICKS = 100;
+    private static final int IMPROVISED_MIN_FUSE_TICKS = 10;
+    private static final int IMPROVISED_MAX_FUSE_TICKS = 200;
 
     private final ThrownGrenadeEntity.Type type;
 
@@ -93,7 +96,7 @@ public class GrenadeItem extends Item
             return; // вже активовано
         }
 
-        stack.set(CQCDataComponents.GRENADE_FUSE.get(), DEFAULT_FUSE_TICKS);
+        stack.set(CQCDataComponents.GRENADE_FUSE.get(), getStartingFuse(level));
 
         // Звук запалу (Shear) — як просив користувач.
         level.playSound(
@@ -124,7 +127,7 @@ public class GrenadeItem extends Item
         if (!level.isClientSide())
         {
             int fuse = getRemainingFuse(stack);
-            if (fuse < 0) fuse = DEFAULT_FUSE_TICKS;
+            if (fuse < 0) fuse = getStartingFuse(level);
 
             ThrownGrenadeEntity grenade = ThrownGrenadeEntity.throwGrenade(level, player, this.type, stack);
             grenade.setFuse(fuse);
@@ -191,9 +194,43 @@ public class GrenadeItem extends Item
                         1.6F, 1.0F
                 );
             }
+            case AIRBURST_FRAG_GRENADE ->
+            {
+                double explosionY = player.getY() + 1.6D;
+                ThrownGrenadeEntity.damageAndSpawnShrapnel(level, player.getX(), explosionY, player.getZ(), 40.0F, ThrownGrenadeEntity.FRAG_GRENADE_SHRAPNEL_DAMAGE, player);
+                ThrownGrenadeEntity.spawnFragExplosionParticles(level, player.getX(), explosionY + 0.25D, player.getZ());
+                ThrownGrenadeEntity.spawnShrapnelSmokeBurst(level, player.getX(), explosionY + 0.25D, player.getZ(), 40.0F, level.getRandom());
+                level.levelEvent(2009,
+                        new net.minecraft.core.BlockPos((int) player.getX(), (int) explosionY, (int) player.getZ()),
+                        0);
+                level.playSound(
+                        null,
+                        player.getX(), explosionY, player.getZ(),
+                        SoundEvents.GENERIC_EXPLODE.value(), SoundSource.NEUTRAL,
+                        1.9F, 0.85F
+                );
+            }
             case HIGH_EXPLOSIVE_GRENADE ->
             {
                 // High Explosive Grenade: повний вибух з ламанням блоків (мала сила).
+                level.explode(
+                        null,
+                        player.getX(), player.getY() + 0.5D, player.getZ(),
+                        ThrownGrenadeEntity.HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
+                        Level.ExplosionInteraction.TNT
+                );
+            }
+            case SMALL_GRENADE ->
+            {
+                level.explode(
+                        null,
+                        player.getX(), player.getY() + 0.5D, player.getZ(),
+                        ThrownGrenadeEntity.SMALL_GRENADE_EXPLOSION_RADIUS,
+                        Level.ExplosionInteraction.TNT
+                );
+            }
+            case IMPROVISED_GRENADE ->
+            {
                 level.explode(
                         null,
                         player.getX(), player.getY() + 0.5D, player.getZ(),
@@ -257,6 +294,27 @@ public class GrenadeItem extends Item
                 level.addFreshEntity(dummy);
                 dummy.setFuse(1); // вибухне на наступному тіку у власній позиції
             }
+            case INCENDIARY_GRENADE ->
+            {
+                ThrownGrenadeEntity dummy = new ThrownGrenadeEntity(level, player, ThrownGrenadeEntity.Type.INCENDIARY_GRENADE);
+                dummy.setPos(player.getX(), player.getY() + 0.5D, player.getZ());
+                level.addFreshEntity(dummy);
+                dummy.setFuse(1);
+            }
         }
+    }
+
+    private int getStartingFuse(Level level)
+    {
+        if (this.type != ThrownGrenadeEntity.Type.IMPROVISED_GRENADE)
+        {
+            return DEFAULT_FUSE_TICKS;
+        }
+
+        double centered = level.getRandom().nextBoolean()
+                ? Math.pow(level.getRandom().nextDouble(), 2.0D)
+                : 1.0D - Math.pow(level.getRandom().nextDouble(), 2.0D);
+        int range = IMPROVISED_MAX_FUSE_TICKS - IMPROVISED_MIN_FUSE_TICKS;
+        return IMPROVISED_MIN_FUSE_TICKS + Mth.clamp((int) Math.round(centered * range), 0, range);
     }
 }

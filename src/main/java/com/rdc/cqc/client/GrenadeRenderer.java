@@ -7,6 +7,7 @@ import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.ItemRenderer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
@@ -51,7 +52,9 @@ public class GrenadeRenderer extends EntityRenderer<ThrownGrenadeEntity>
                        MultiBufferSource buffer,
                        int packedLight)
     {
-        if (entity.isSmokeEmitting() || entity.isGasEmitting())
+        if (entity.isSmokeEmitting()
+                || entity.isGasEmitting()
+                || entity.getGrenadeType() == ThrownGrenadeEntity.Type.INCENDIARY_FRAGMENT)
         {
             return;
         }
@@ -70,15 +73,23 @@ public class GrenadeRenderer extends EntityRenderer<ThrownGrenadeEntity>
         //  • Якщо в польоті — обертаємо High Explosive, Sticky та Giga Grenade.
         ThrownGrenadeEntity.Type grenadeType = entity.getGrenadeType();
         boolean shouldSpin = grenadeType == ThrownGrenadeEntity.Type.HIGH_EXPLOSIVE_GRENADE
+                || grenadeType == ThrownGrenadeEntity.Type.IMPROVISED_GRENADE
                 || grenadeType == ThrownGrenadeEntity.Type.STICKY_GRENADE
                 || grenadeType == ThrownGrenadeEntity.Type.SHAPED_CHARGE_GRENADE
                 || grenadeType == ThrownGrenadeEntity.Type.GIGA;
 
         if (entity.isResting())
         {
-            // Лежить у стабільній world-space позі, а не дивиться на камеру.
-            poseStack.mulPose(Axis.YP.rotationDegrees(stableRestingYaw(entity)));
-            poseStack.mulPose(Axis.XP.rotationDegrees(90.0F));
+            if (grenadeType == ThrownGrenadeEntity.Type.MAGNETIC_GRENADE && entity.getMagneticAttachedFace() != null)
+            {
+                alignMagneticGrenadeToSurface(poseStack, entity.getMagneticAttachedFace(), entity);
+            }
+            else
+            {
+                // Лежить у стабільній world-space позі, а не дивиться на камеру.
+                poseStack.mulPose(Axis.YP.rotationDegrees(stableRestingYaw(entity)));
+                poseStack.mulPose(Axis.XP.rotationDegrees(90.0F));
+            }
         }
         else
         {
@@ -127,6 +138,28 @@ public class GrenadeRenderer extends EntityRenderer<ThrownGrenadeEntity>
     private static float stableRestingYaw(ThrownGrenadeEntity entity)
     {
         return (entity.getId() * 47) % 360;
+    }
+
+    private static void alignMagneticGrenadeToSurface(PoseStack poseStack, Direction face, ThrownGrenadeEntity entity)
+    {
+        float roll = stableRestingYaw(entity);
+        switch (face)
+        {
+            case UP ->
+            {
+                poseStack.mulPose(Axis.YP.rotationDegrees(roll));
+                poseStack.mulPose(Axis.XP.rotationDegrees(90.0F));
+            }
+            case DOWN ->
+            {
+                poseStack.mulPose(Axis.YP.rotationDegrees(roll));
+                poseStack.mulPose(Axis.XP.rotationDegrees(-90.0F));
+            }
+            case NORTH -> poseStack.mulPose(Axis.YP.rotationDegrees(180.0F));
+            case SOUTH -> poseStack.mulPose(Axis.YP.rotationDegrees(0.0F));
+            case EAST -> poseStack.mulPose(Axis.YP.rotationDegrees(90.0F));
+            case WEST -> poseStack.mulPose(Axis.YP.rotationDegrees(-90.0F));
+        }
     }
 
     @Override

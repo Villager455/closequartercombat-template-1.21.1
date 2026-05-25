@@ -64,11 +64,51 @@ public class CQCItems
             )
     );
 
+    public static final DeferredItem<Item> AIRBURST_FRAG_GRENADE = ITEMS.register(
+            "airburst_frag_grenade",
+            () -> new GrenadeItem(
+                    new Item.Properties().stacksTo(1),
+                    ThrownGrenadeEntity.Type.AIRBURST_FRAG_GRENADE
+            )
+    );
+
     public static final DeferredItem<Item> HIGH_EXPLOSIVE_GRENADE = ITEMS.register(
             "high_explosive_grenade",
             () -> new GrenadeItem(
                     new Item.Properties().stacksTo(1),
                     ThrownGrenadeEntity.Type.HIGH_EXPLOSIVE_GRENADE
+            )
+    );
+
+    public static final DeferredItem<Item> SMALL_GRENADE = ITEMS.register(
+            "small_grenade",
+            () -> new GrenadeItem(
+                    new Item.Properties().stacksTo(1),
+                    ThrownGrenadeEntity.Type.SMALL_GRENADE
+            )
+    );
+
+    public static final DeferredItem<Item> IMPROVISED_GRENADE = ITEMS.register(
+            "improvised_grenade",
+            () -> new GrenadeItem(
+                    new Item.Properties().stacksTo(1),
+                    ThrownGrenadeEntity.Type.IMPROVISED_GRENADE
+            )
+    );
+
+    public static final DeferredItem<Item> MOLOTOV = ITEMS.register(
+            "molotov",
+            () -> new GrenadeItem(
+                    new Item.Properties().stacksTo(1),
+                    ThrownGrenadeEntity.Type.MOLOTOV
+            )
+    );
+
+    public static final DeferredItem<Item> INCENDIARY_GRENADE = ITEMS.register(
+            "incendiary_grenade",
+            () -> new GrenadeItem(
+                    new Item.Properties().stacksTo(1),
+                    ThrownGrenadeEntity.Type.INCENDIARY_GRENADE
             )
     );
 

@@ -30,6 +30,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -59,6 +60,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     /** Giga важча, тому летить помітно ближче за інші гранати. */
     private static final float DEFAULT_THROW_VELOCITY = 0.7F;
     private static final float GIGA_THROW_VELOCITY = 0.45F;
+    private static final float SMALL_THROW_VELOCITY = DEFAULT_THROW_VELOCITY * 2.0F;
 
     /** Тип гранати (порядковий номер у {@link Type}). Синхронізується з клієнтом для рендера. */
     private static final EntityDataAccessor<Integer> DATA_TYPE =
@@ -76,11 +78,16 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     private static final EntityDataAccessor<Boolean> DATA_GAS_EMITTING =
             SynchedEntityData.defineId(ThrownGrenadeEntity.class, EntityDataSerializers.BOOLEAN);
 
+    /** Грань блока, до якої прилипла магнітна граната; -1 якщо ще не прилипла. */
+    private static final EntityDataAccessor<Integer> DATA_MAGNETIC_ATTACHED_FACE =
+            SynchedEntityData.defineId(ThrownGrenadeEntity.class, EntityDataSerializers.INT);
+
     /** Залишок фьюзу в тіках. Не синхронізується (логіка лише на сервері). */
     private int fuse = 100;
     private int smokeEmitterAge = 0;
     private int gasEmitterAge = 0;
     private boolean stickyStuck = false;
+    private boolean airburstLaunched = false;
     private int stickyTargetId = -1;
     private Vec3 stickyEntityOffset = Vec3.ZERO;
     private Vec3 magneticJetDirection = Vec3.ZERO;
@@ -90,9 +97,14 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
 
     /** Максимальна шкода від осколків Frag Grenade в центрі вибуху. */
     public static final float FRAG_GRENADE_SHRAPNEL_DAMAGE = 90.0F;
+    private static final float AIRBURST_FRAG_GRENADE_EXPLOSION_RADIUS = 40.0F;
+    private static final int AIRBURST_FRAG_GRENADE_SECOND_FUSE_TICKS = 12;
 
     /** Радіус вибуху для High Explosive Grenade (менший за TNT). */
     public static final float HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS = 2.2F;
+
+    /** Радіус вибуху для маленької гранати — половина фугасної. */
+    public static final float SMALL_GRENADE_EXPLOSION_RADIUS = HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS * 0.5F;
 
     /** Радіус вибуху для Impact Grenade — приблизно 66% від фугасної. */
     public static final float IMPACT_GRENADE_EXPLOSION_RADIUS = HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS * 0.66F;
@@ -108,6 +120,11 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     private static final double SHAPED_CHARGE_JET_LENGTH = 3.0D;
     private static final double SHAPED_CHARGE_EXPLOSION_DISTANCE = 4.0D;
     private static final int MAGNETIC_GRENADE_FUSE_TICKS = 200;
+    private static final int MOLOTOV_MIN_FIRES = 3;
+    private static final int MOLOTOV_MAX_FIRES = 6;
+    private static final int MOLOTOV_FIRE_RADIUS = 2;
+    private static final int INCENDIARY_FRAGMENT_COUNT = 5;
+    private static final double INCENDIARY_FRAGMENT_SPREAD_RADIUS = 5.0D;
 
     /** Радіус вибуху для GIGA гранати (трохи сильніший за TNT). */
     public static final float GIGA_EXPLOSION_RADIUS = 4.5F;
@@ -157,6 +174,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         builder.define(DATA_RESTING, Boolean.FALSE);
         builder.define(DATA_SMOKE_EMITTING, Boolean.FALSE);
         builder.define(DATA_GAS_EMITTING, Boolean.FALSE);
+        builder.define(DATA_MAGNETIC_ATTACHED_FACE, -1);
     }
 
     /** Чи граната зараз лежить (швидкість майже нуль). Використовується клієнтом для зупинки обертання. */
@@ -175,6 +193,13 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         return this.entityData.get(DATA_GAS_EMITTING);
     }
 
+    public Direction getMagneticAttachedFace()
+    {
+        int faceIndex = this.entityData.get(DATA_MAGNETIC_ATTACHED_FACE);
+        Direction[] directions = Direction.values();
+        return faceIndex >= 0 && faceIndex < directions.length ? directions[faceIndex] : null;
+    }
+
     /** Виставляє залишок фьюзу (у тіках). Використовується для «винесення» залишку з активованої гранати-предмета. */
     public void setFuse(int fuse)
     {
@@ -187,6 +212,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         return getGrenadeType() != Type.IMPACT_GRENADE
                 && getGrenadeType() != Type.SHAPED_CHARGE_GRENADE
                 && getGrenadeType() != Type.MAGNETIC_GRENADE
+                && getGrenadeType() != Type.INCENDIARY_FRAGMENT
                 && !isSmokeEmitting()
                 && !isGasEmitting();
     }
@@ -324,8 +350,9 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             if (this.fuse <= 0 && !this.isRemoved())
             {
                 Type type = getGrenadeType();
+                boolean wasAirburstLaunch = type == Type.AIRBURST_FRAG_GRENADE && !this.airburstLaunched;
                 detonate();
-                if (type != Type.SMOKE && type != Type.GAS)
+                if (type != Type.SMOKE && type != Type.GAS && !wasAirburstLaunch)
                 {
                     this.discard();
                 }
@@ -333,6 +360,24 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         }
         else
         {
+            if (getGrenadeType() == Type.INCENDIARY_FRAGMENT)
+            {
+                this.level().addParticle(
+                        ParticleTypes.FLAME,
+                        this.getX(), this.getY() + 0.05D, this.getZ(),
+                        0.0D, 0.01D, 0.0D
+                );
+                if (this.tickCount % 2 == 0)
+                {
+                    this.level().addParticle(
+                            ParticleTypes.SMOKE,
+                            this.getX(), this.getY() + 0.05D, this.getZ(),
+                            0.0D, 0.01D, 0.0D
+                    );
+                }
+                return;
+            }
+
             // Невеликий «димок» з гранати, щоб видно було, що вона активна.
             if (this.tickCount % 2 == 0)
             {
@@ -351,6 +396,11 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     @Override
     protected void onHitBlock(BlockHitResult result)
     {
+        if (tryIncendiaryFragmentIgnite(result.getLocation()))
+        {
+            return;
+        }
+
         if (tryImpactDetonate())
         {
             return;
@@ -362,6 +412,11 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         }
 
         if (tryMagneticStickToBlock(result))
+        {
+            return;
+        }
+
+        if (tryMolotovIgnite(result.getLocation()))
         {
             return;
         }
@@ -420,6 +475,11 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     @Override
     protected void onHitEntity(EntityHitResult result)
     {
+        if (tryIncendiaryFragmentIgnite(result.getLocation()))
+        {
+            return;
+        }
+
         applyDirectHitDamage(result);
 
         if (tryImpactDetonate())
@@ -428,6 +488,11 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         }
 
         if (tryShapedChargeDetonate(result.getLocation(), this.getDeltaMovement()))
+        {
+            return;
+        }
+
+        if (tryMolotovIgnite(result.getLocation()))
         {
             return;
         }
@@ -503,6 +568,163 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         }
 
         return true;
+    }
+
+    private boolean tryMolotovIgnite(Vec3 impactPosition)
+    {
+        if (getGrenadeType() != Type.MOLOTOV)
+        {
+            return false;
+        }
+
+        if (!this.level().isClientSide() && !this.isRemoved())
+        {
+            spreadMolotovFire(impactPosition);
+            this.level().playSound(
+                    null,
+                    impactPosition.x, impactPosition.y, impactPosition.z,
+                    SoundEvents.GLASS_BREAK, SoundSource.NEUTRAL,
+                    1.0F, 0.9F + this.random.nextFloat() * 0.2F
+            );
+            this.level().playSound(
+                    null,
+                    impactPosition.x, impactPosition.y, impactPosition.z,
+                    SoundEvents.FIRECHARGE_USE, SoundSource.NEUTRAL,
+                    0.9F, 0.9F + this.random.nextFloat() * 0.3F
+            );
+            this.discard();
+        }
+
+        return true;
+    }
+
+    private boolean tryIncendiaryFragmentIgnite(Vec3 impactPosition)
+    {
+        if (getGrenadeType() != Type.INCENDIARY_FRAGMENT)
+        {
+            return false;
+        }
+
+        if (!this.level().isClientSide() && !this.isRemoved())
+        {
+            igniteIncendiaryFragment(impactPosition);
+            this.discard();
+        }
+
+        return true;
+    }
+
+    private void igniteIncendiaryFragment(Vec3 impactPosition)
+    {
+        spreadMolotovFire(impactPosition);
+        if (this.level() instanceof ServerLevel serverLevel)
+        {
+            serverLevel.sendParticles(
+                    ParticleTypes.FLAME,
+                    impactPosition.x, impactPosition.y + 0.15D, impactPosition.z,
+                    12,
+                    0.25D, 0.08D, 0.25D,
+                    0.02D
+            );
+        }
+        this.level().playSound(
+                null,
+                impactPosition.x, impactPosition.y, impactPosition.z,
+                SoundEvents.FIRECHARGE_USE, SoundSource.NEUTRAL,
+                0.65F, 1.1F + this.random.nextFloat() * 0.25F
+        );
+    }
+
+    private void spreadMolotovFire(Vec3 impactPosition)
+    {
+        BlockPos center = BlockPos.containing(impactPosition);
+        int fireCount = MOLOTOV_MIN_FIRES + this.random.nextInt(MOLOTOV_MAX_FIRES - MOLOTOV_MIN_FIRES + 1);
+        int placed = 0;
+
+        for (int attempts = 0; attempts < 48 && placed < fireCount; attempts++)
+        {
+            int dx = this.random.nextInt(MOLOTOV_FIRE_RADIUS * 2 + 1) - MOLOTOV_FIRE_RADIUS;
+            int dz = this.random.nextInt(MOLOTOV_FIRE_RADIUS * 2 + 1) - MOLOTOV_FIRE_RADIUS;
+            if (dx * dx + dz * dz > MOLOTOV_FIRE_RADIUS * MOLOTOV_FIRE_RADIUS + 1)
+            {
+                continue;
+            }
+
+            BlockPos.MutableBlockPos scan = new BlockPos.MutableBlockPos(center.getX() + dx, center.getY() + 2, center.getZ() + dz);
+            for (int y = center.getY() + 2; y >= center.getY() - 2; y--)
+            {
+                scan.setY(y);
+                BlockPos firePos = scan.immutable();
+                BlockPos below = firePos.below();
+                if (this.level().isEmptyBlock(firePos)
+                        && this.level().getBlockState(below).isFaceSturdy(this.level(), below, Direction.UP))
+                {
+                    this.level().setBlock(firePos, Blocks.FIRE.defaultBlockState(), 11);
+                    placed++;
+                    break;
+                }
+            }
+        }
+    }
+
+    private void placeFireUnderPosition(Vec3 position)
+    {
+        BlockPos center = BlockPos.containing(position);
+        BlockPos.MutableBlockPos scan = new BlockPos.MutableBlockPos(center.getX(), center.getY() + 1, center.getZ());
+        for (int y = center.getY() + 1; y >= center.getY() - 3; y--)
+        {
+            scan.setY(y);
+            BlockPos firePos = scan.immutable();
+            BlockPos below = firePos.below();
+            if (this.level().isEmptyBlock(firePos)
+                    && this.level().getBlockState(below).isFaceSturdy(this.level(), below, Direction.UP))
+            {
+                this.level().setBlock(firePos, Blocks.FIRE.defaultBlockState(), 11);
+                return;
+            }
+        }
+    }
+
+    private void detonateIncendiaryGrenade()
+    {
+        Vec3 origin = this.position();
+        placeFireUnderPosition(origin);
+        spawnIncendiaryBurstParticles(origin);
+
+        for (int i = 0; i < INCENDIARY_FRAGMENT_COUNT; i++)
+        {
+            double angle = (Math.PI * 2.0D * i / INCENDIARY_FRAGMENT_COUNT) + this.random.nextDouble() * 0.55D;
+            double speed = (INCENDIARY_FRAGMENT_SPREAD_RADIUS / 17.0D) + this.random.nextDouble() * 0.05D;
+            Vec3 velocity = new Vec3(Math.cos(angle) * speed, 0.34D + this.random.nextDouble() * 0.08D, Math.sin(angle) * speed);
+
+            ThrownGrenadeEntity fragment = this.getOwner() instanceof LivingEntity living
+                    ? new ThrownGrenadeEntity(this.level(), living, Type.INCENDIARY_FRAGMENT)
+                    : new ThrownGrenadeEntity(CQCEntities.THROWN_GRENADE.get(), this.level());
+            fragment.setGrenadeType(Type.INCENDIARY_FRAGMENT);
+            fragment.setPos(origin.x, origin.y + 0.2D, origin.z);
+            fragment.setDeltaMovement(velocity);
+            fragment.setFuse(80);
+            fragment.setNoGravity(false);
+            this.level().addFreshEntity(fragment);
+        }
+
+        this.level().playSound(
+                null,
+                this.getX(), this.getY(), this.getZ(),
+                SoundEvents.FIRECHARGE_USE, SoundSource.NEUTRAL,
+                1.1F, 0.9F + this.random.nextFloat() * 0.25F
+        );
+    }
+
+    private void spawnIncendiaryBurstParticles(Vec3 origin)
+    {
+        if (!(this.level() instanceof ServerLevel serverLevel))
+        {
+            return;
+        }
+
+        serverLevel.sendParticles(ParticleTypes.FLAME, origin.x, origin.y + 0.25D, origin.z, 36, 0.65D, 0.25D, 0.65D, 0.06D);
+        serverLevel.sendParticles(ParticleTypes.SMOKE, origin.x, origin.y + 0.25D, origin.z, 16, 0.4D, 0.18D, 0.4D, 0.02D);
     }
 
     private boolean tryShapedChargeDetonate(Vec3 impactPosition, Vec3 impactVelocity)
@@ -622,6 +844,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             this.magneticJetDirection = velocity.lengthSqr() > 1.0E-4D
                     ? velocity.normalize()
                     : this.getLookAngle().normalize();
+            this.entityData.set(DATA_MAGNETIC_ATTACHED_FACE, result.getDirection().ordinal());
             Vec3 normal = Vec3.atLowerCornerOf(result.getDirection().getNormal()).scale(0.08D);
             stickAt(result.getLocation().add(normal), MAGNETIC_GRENADE_FUSE_TICKS);
         }
@@ -658,8 +881,10 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
 
         this.level().playSound(
                 null, this.getX(), this.getY(), this.getZ(),
-                SoundEvents.SLIME_SQUISH, SoundSource.NEUTRAL,
-                0.65F, 0.85F + this.random.nextFloat() * 0.25F
+                getGrenadeType() == Type.MAGNETIC_GRENADE ? SoundEvents.LODESTONE_COMPASS_LOCK : SoundEvents.SLIME_SQUISH,
+                SoundSource.NEUTRAL,
+                getGrenadeType() == Type.MAGNETIC_GRENADE ? 0.8F : 0.65F,
+                0.85F + this.random.nextFloat() * 0.25F
         );
     }
 
@@ -719,9 +944,58 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                         1.6F, 1.0F
                 );
             }
+            case AIRBURST_FRAG_GRENADE ->
+            {
+                if (!this.airburstLaunched)
+                {
+                    this.airburstLaunched = true;
+                    this.fuse = AIRBURST_FRAG_GRENADE_SECOND_FUSE_TICKS;
+                    this.entityData.set(DATA_RESTING, Boolean.FALSE);
+                    this.setNoGravity(false);
+                    this.setDeltaMovement(this.getDeltaMovement().multiply(0.25D, 0.0D, 0.25D).add(0.0D, 0.58D + this.random.nextDouble() * 0.12D, 0.0D));
+                    this.level().playSound(
+                            null,
+                            this.getX(), this.getY(), this.getZ(),
+                            SoundEvents.FIREWORK_ROCKET_BLAST, SoundSource.NEUTRAL,
+                            0.85F, 1.15F
+                    );
+                    return;
+                }
+
+                damageAirburstShrapnel();
+                spawnFragExplosionParticles(this.level(), this.getX(), this.getY() + 0.25D, this.getZ());
+                spawnShrapnelSmokeBurst(this.level(), this.getX(), this.getY() + 0.25D, this.getZ(), AIRBURST_FRAG_GRENADE_EXPLOSION_RADIUS, this.random);
+                this.level().levelEvent(2009,
+                        new net.minecraft.core.BlockPos((int)this.getX(), (int)this.getY(), (int)this.getZ()),
+                        0);
+                this.level().playSound(
+                        null,
+                        this.getX(), this.getY(), this.getZ(),
+                        SoundEvents.GENERIC_EXPLODE.value(), SoundSource.NEUTRAL,
+                        1.9F, 0.85F
+                );
+            }
             case HIGH_EXPLOSIVE_GRENADE ->
             {
                 // High Explosive Grenade: повний вибух з ламанням блоків, але слабше за TNT.
+                this.level().explode(
+                        null,
+                        this.getX(), this.getY(), this.getZ(),
+                        HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
+                        Level.ExplosionInteraction.TNT
+                );
+            }
+            case SMALL_GRENADE ->
+            {
+                this.level().explode(
+                        null,
+                        this.getX(), this.getY(), this.getZ(),
+                        SMALL_GRENADE_EXPLOSION_RADIUS,
+                        Level.ExplosionInteraction.TNT
+                );
+            }
+            case IMPROVISED_GRENADE ->
+            {
                 this.level().explode(
                         null,
                         this.getX(), this.getY(), this.getZ(),
@@ -748,6 +1022,30 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             case MAGNETIC_GRENADE ->
             {
                 detonateMagneticGrenade();
+            }
+            case MOLOTOV ->
+            {
+                spreadMolotovFire(this.position());
+                this.level().playSound(
+                        null,
+                        this.getX(), this.getY(), this.getZ(),
+                        SoundEvents.GLASS_BREAK, SoundSource.NEUTRAL,
+                        1.0F, 1.0F
+                );
+                this.level().playSound(
+                        null,
+                        this.getX(), this.getY(), this.getZ(),
+                        SoundEvents.FIRECHARGE_USE, SoundSource.NEUTRAL,
+                        0.9F, 1.0F
+                );
+            }
+            case INCENDIARY_GRENADE ->
+            {
+                detonateIncendiaryGrenade();
+            }
+            case INCENDIARY_FRAGMENT ->
+            {
+                igniteIncendiaryFragment(this.position());
             }
             case STICKY_GRENADE ->
             {
@@ -804,6 +1102,59 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     private void spawnShrapnelAndDamage(float radius, float damage)
     {
         damageAndSpawnShrapnel(this.level(), this.getX(), this.getY(), this.getZ(), radius, damage, (LivingEntity) this.getOwner());
+    }
+
+    private void damageAirburstShrapnel()
+    {
+        float radius = AIRBURST_FRAG_GRENADE_EXPLOSION_RADIUS;
+        Vec3 origin = this.position();
+        List<LivingEntity> entities = this.level().getEntitiesOfClass(
+                LivingEntity.class,
+                new net.minecraft.world.phys.AABB(
+                        this.getX() - radius, this.getY() - radius, this.getZ() - radius,
+                        this.getX() + radius, this.getY() + radius, this.getZ() + radius
+                )
+        );
+
+        for (LivingEntity entity : entities)
+        {
+            double dist = entity.position().distanceTo(origin);
+            if (dist > radius)
+            {
+                continue;
+            }
+
+            if (!canShrapnelReach(this.level(), origin, entity))
+            {
+                continue;
+            }
+
+            float actualDamage = getAirburstShrapnelDamage(dist);
+            DamageSource src = this.damageSources().thrown(this, this.getOwner());
+            entity.hurt(src, actualDamage);
+
+            float falloff = 1.0F - (float) (dist / radius);
+            Vec3 direction = entity.position().subtract(origin).normalize();
+            entity.knockback(0.5D * falloff, direction.x, direction.z);
+        }
+    }
+
+    private static float getAirburstShrapnelDamage(double distance)
+    {
+        if (distance <= 5.0D)
+        {
+            return 35.0F;
+        }
+        if (distance <= 10.0D)
+        {
+            return Mth.lerp((float) ((distance - 5.0D) / 5.0D), 35.0F, 20.0F);
+        }
+        if (distance <= 15.0D)
+        {
+            return Mth.lerp((float) ((distance - 10.0D) / 5.0D), 20.0F, 15.0F);
+        }
+
+        return Math.max(1.0F, Mth.lerp((float) ((distance - 15.0D) / 25.0D), 15.0F, 1.0F));
     }
 
     /** Додає ванільний TNT-like спалах вибухових частинок для Frag Grenade без ламання блоків. */
@@ -1138,7 +1489,12 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     {
         ThrownGrenadeEntity grenade = new ThrownGrenadeEntity(level, thrower, type);
         grenade.setItem(stack.copyWithCount(1));
-        float velocity = type == Type.GIGA ? GIGA_THROW_VELOCITY : DEFAULT_THROW_VELOCITY;
+        float velocity = switch (type)
+        {
+            case GIGA -> GIGA_THROW_VELOCITY;
+            case SMALL_GRENADE -> SMALL_THROW_VELOCITY;
+            default -> DEFAULT_THROW_VELOCITY;
+        };
         grenade.shootFromRotation(thrower, thrower.getXRot(), thrower.getYRot(), -20.0F, velocity, 1.0F);
         level.addFreshEntity(grenade);
         return grenade;
@@ -1155,17 +1511,28 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         SMOKE, // димова
         GIGA,  // гіга граната
         SHAPED_CHARGE_GRENADE,   // кумулятивна граната
-        MAGNETIC_GRENADE;        // магнітна граната
+        MAGNETIC_GRENADE,        // магнітна граната
+        SMALL_GRENADE,           // маленька граната
+        IMPROVISED_GRENADE,      // саморобна граната
+        AIRBURST_FRAG_GRENADE,   // підстрибуюча осколкова граната
+        MOLOTOV,                 // молотов
+        INCENDIARY_GRENADE,      // запалювальна граната
+        INCENDIARY_FRAGMENT;     // внутрішній запалювальний уламок
 
         public Item getItem()
         {
             return switch (this)
             {
                 case FRAG_GRENADE -> CQCItems.FRAG_GRENADE.get();
+                case AIRBURST_FRAG_GRENADE -> CQCItems.AIRBURST_FRAG_GRENADE.get();
                 case HIGH_EXPLOSIVE_GRENADE -> CQCItems.HIGH_EXPLOSIVE_GRENADE.get();
+                case SMALL_GRENADE -> CQCItems.SMALL_GRENADE.get();
+                case IMPROVISED_GRENADE -> CQCItems.IMPROVISED_GRENADE.get();
                 case IMPACT_GRENADE -> CQCItems.IMPACT_GRENADE.get();
                 case SHAPED_CHARGE_GRENADE -> CQCItems.SHAPED_CHARGE_GRENADE.get();
                 case MAGNETIC_GRENADE -> CQCItems.MAGNETIC_GRENADE.get();
+                case MOLOTOV -> CQCItems.MOLOTOV.get();
+                case INCENDIARY_GRENADE, INCENDIARY_FRAGMENT -> CQCItems.INCENDIARY_GRENADE.get();
                 case STICKY_GRENADE -> CQCItems.STICKY_GRENADE.get();
                 case GAS -> CQCItems.GAS_GRENADE.get();
                 case SMOKE -> CQCItems.SMOKE_GRENADE.get();
