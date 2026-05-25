@@ -71,6 +71,7 @@ public class GrenadeRenderer extends EntityRenderer<ThrownGrenadeEntity>
         ThrownGrenadeEntity.Type grenadeType = entity.getGrenadeType();
         boolean shouldSpin = grenadeType == ThrownGrenadeEntity.Type.HIGH_EXPLOSIVE_GRENADE
                 || grenadeType == ThrownGrenadeEntity.Type.STICKY_GRENADE
+                || grenadeType == ThrownGrenadeEntity.Type.SHAPED_CHARGE_GRENADE
                 || grenadeType == ThrownGrenadeEntity.Type.GIGA;
 
         if (entity.isResting())

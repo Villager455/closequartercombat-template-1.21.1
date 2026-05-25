@@ -80,6 +80,22 @@ public class CQCItems
             )
     );
 
+    public static final DeferredItem<Item> SHAPED_CHARGE_GRENADE = ITEMS.register(
+            "heat_grenade",
+            () -> new GrenadeItem(
+                    new Item.Properties().stacksTo(1),
+                    ThrownGrenadeEntity.Type.SHAPED_CHARGE_GRENADE
+            )
+    );
+
+    public static final DeferredItem<Item> MAGNETIC_GRENADE = ITEMS.register(
+            "magnetic_grenade",
+            () -> new GrenadeItem(
+                    new Item.Properties().stacksTo(1),
+                    ThrownGrenadeEntity.Type.MAGNETIC_GRENADE
+            )
+    );
+
     public static final DeferredItem<Item> STICKY_GRENADE = ITEMS.register(
             "sticky_grenade",
             () -> new GrenadeItem(

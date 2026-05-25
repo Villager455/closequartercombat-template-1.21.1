@@ -81,7 +81,9 @@ public class GrenadeItem extends Item
      */
     public void pullPin(ServerLevel level, Player player, InteractionHand hand, ItemStack stack)
     {
-        if (this.type == ThrownGrenadeEntity.Type.IMPACT_GRENADE)
+        if (this.type == ThrownGrenadeEntity.Type.IMPACT_GRENADE
+                || this.type == ThrownGrenadeEntity.Type.SHAPED_CHARGE_GRENADE
+                || this.type == ThrownGrenadeEntity.Type.MAGNETIC_GRENADE)
         {
             return;
         }
@@ -205,6 +207,24 @@ public class GrenadeItem extends Item
                         null,
                         player.getX(), player.getY() + 0.5D, player.getZ(),
                         ThrownGrenadeEntity.IMPACT_GRENADE_EXPLOSION_RADIUS,
+                        Level.ExplosionInteraction.TNT
+                );
+            }
+            case SHAPED_CHARGE_GRENADE ->
+            {
+                level.explode(
+                        null,
+                        player.getX(), player.getY() + 0.5D, player.getZ(),
+                        ThrownGrenadeEntity.HEAT_GRENADE_EXPLOSION_RADIUS,
+                        Level.ExplosionInteraction.TNT
+                );
+            }
+            case MAGNETIC_GRENADE ->
+            {
+                level.explode(
+                        null,
+                        player.getX(), player.getY() + 0.5D, player.getZ(),
+                        ThrownGrenadeEntity.HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
                         Level.ExplosionInteraction.TNT
                 );
             }

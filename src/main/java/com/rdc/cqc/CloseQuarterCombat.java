@@ -57,6 +57,8 @@ public class CloseQuarterCombat
                         output.accept(CQCItems.FRAG_GRENADE.get());
                         output.accept(CQCItems.HIGH_EXPLOSIVE_GRENADE.get());
                         output.accept(CQCItems.IMPACT_GRENADE.get());
+                        output.accept(CQCItems.SHAPED_CHARGE_GRENADE.get());
+                        output.accept(CQCItems.MAGNETIC_GRENADE.get());
                         output.accept(CQCItems.STICKY_GRENADE.get());
                         output.accept(CQCItems.GIGA_GRENADE.get());
                         output.accept(CQCItems.GAS_GRENADE.get());

@@ -83,6 +83,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     private boolean stickyStuck = false;
     private int stickyTargetId = -1;
     private Vec3 stickyEntityOffset = Vec3.ZERO;
+    private Vec3 magneticJetDirection = Vec3.ZERO;
 
     /** Радіус ураження для осколкової гранати. */
     public static final float FRAG_GRENADE_EXPLOSION_RADIUS = 10.0F;
@@ -95,6 +96,18 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
 
     /** Радіус вибуху для Impact Grenade — приблизно 66% від фугасної. */
     public static final float IMPACT_GRENADE_EXPLOSION_RADIUS = HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS * 0.66F;
+
+    /** Радіус вибуху для кумулятивної гранати — 20% від фугасної. */
+    public static final float HEAT_GRENADE_EXPLOSION_RADIUS = HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS * 0.2F;
+
+    /** Шкода при прямому влучанні контактних гранат у моба/гравця. */
+    private static final float IMPACT_GRENADE_DIRECT_HIT_DAMAGE = 30.0F;
+    private static final float HEAT_GRENADE_DIRECT_HIT_DAMAGE = 150.0F;
+
+    /** Довжина видимого кумулятивного струменя та відстань вибуху від точки удару. */
+    private static final double SHAPED_CHARGE_JET_LENGTH = 3.0D;
+    private static final double SHAPED_CHARGE_EXPLOSION_DISTANCE = 4.0D;
+    private static final int MAGNETIC_GRENADE_FUSE_TICKS = 200;
 
     /** Радіус вибуху для GIGA гранати (трохи сильніший за TNT). */
     public static final float GIGA_EXPLOSION_RADIUS = 4.5F;
@@ -171,7 +184,11 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     @Override
     public boolean isPickable()
     {
-        return getGrenadeType() != Type.IMPACT_GRENADE && !isSmokeEmitting() && !isGasEmitting();
+        return getGrenadeType() != Type.IMPACT_GRENADE
+                && getGrenadeType() != Type.SHAPED_CHARGE_GRENADE
+                && getGrenadeType() != Type.MAGNETIC_GRENADE
+                && !isSmokeEmitting()
+                && !isGasEmitting();
     }
 
     @Override
@@ -290,6 +307,10 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
 
                 updateStickyAttachment();
             }
+            else if (getGrenadeType() == Type.MAGNETIC_GRENADE && !this.stickyStuck)
+            {
+                return;
+            }
 
             // Після приземлення стан лишається true, щоб дрібне ковзання не запускало spin знову.
             boolean resting = this.entityData.get(DATA_RESTING) || this.onGround();
@@ -331,6 +352,16 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     protected void onHitBlock(BlockHitResult result)
     {
         if (tryImpactDetonate())
+        {
+            return;
+        }
+
+        if (tryShapedChargeDetonate(result.getLocation(), this.getDeltaMovement()))
+        {
+            return;
+        }
+
+        if (tryMagneticStickToBlock(result))
         {
             return;
         }
@@ -389,7 +420,14 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     @Override
     protected void onHitEntity(EntityHitResult result)
     {
+        applyDirectHitDamage(result);
+
         if (tryImpactDetonate())
+        {
+            return;
+        }
+
+        if (tryShapedChargeDetonate(result.getLocation(), this.getDeltaMovement()))
         {
             return;
         }
@@ -407,6 +445,29 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         }
         Vec3 v = this.getDeltaMovement();
         this.setDeltaMovement(v.scale(-0.3D));
+    }
+
+    private void applyDirectHitDamage(EntityHitResult result)
+    {
+        if (this.level().isClientSide() || !(result.getEntity() instanceof LivingEntity living))
+        {
+            return;
+        }
+
+        float damage = switch (getGrenadeType())
+        {
+            case IMPACT_GRENADE -> IMPACT_GRENADE_DIRECT_HIT_DAMAGE;
+            case SHAPED_CHARGE_GRENADE -> HEAT_GRENADE_DIRECT_HIT_DAMAGE;
+            default -> 0.0F;
+        };
+
+        if (damage <= 0.0F)
+        {
+            return;
+        }
+
+        DamageSource src = this.damageSources().thrown(this, this.getOwner());
+        living.hurt(src, damage);
     }
 
     /**
@@ -444,6 +505,94 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         return true;
     }
 
+    private boolean tryShapedChargeDetonate(Vec3 impactPosition, Vec3 impactVelocity)
+    {
+        if (getGrenadeType() != Type.SHAPED_CHARGE_GRENADE)
+        {
+            return false;
+        }
+
+        if (!this.level().isClientSide() && !this.isRemoved())
+        {
+            detonateShapedCharge(impactPosition, impactVelocity);
+            this.discard();
+        }
+
+        return true;
+    }
+
+    private void detonateShapedCharge(Vec3 impactPosition, Vec3 impactVelocity)
+    {
+        Vec3 direction = impactVelocity.lengthSqr() > 1.0E-4D
+                ? impactVelocity.normalize()
+                : this.getLookAngle().normalize();
+
+        spawnShapedChargeJetParticles(impactPosition, direction);
+
+        Vec3 explosionPosition = impactPosition.add(direction.scale(SHAPED_CHARGE_EXPLOSION_DISTANCE));
+        this.level().explode(
+                null,
+                explosionPosition.x, explosionPosition.y, explosionPosition.z,
+                HEAT_GRENADE_EXPLOSION_RADIUS,
+                Level.ExplosionInteraction.TNT
+        );
+    }
+
+    private void detonateMagneticGrenade()
+    {
+        Vec3 direction = this.magneticJetDirection.lengthSqr() > 1.0E-4D
+                ? this.magneticJetDirection.normalize()
+                : this.getLookAngle().normalize();
+
+        Vec3 origin = this.position();
+        spawnShapedChargeJetParticles(origin, direction);
+
+        Vec3 explosionPosition = origin.add(direction.scale(SHAPED_CHARGE_EXPLOSION_DISTANCE));
+        this.level().explode(
+                null,
+                origin.x, origin.y, origin.z,
+                HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
+                Level.ExplosionInteraction.TNT
+        );
+        this.level().explode(
+                null,
+                explosionPosition.x, explosionPosition.y, explosionPosition.z,
+                HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
+                Level.ExplosionInteraction.TNT
+        );
+    }
+
+    private void spawnShapedChargeJetParticles(Vec3 origin, Vec3 direction)
+    {
+        if (!(this.level() instanceof ServerLevel serverLevel))
+        {
+            return;
+        }
+
+        int points = 18;
+        for (int i = 0; i <= points; i++)
+        {
+            double progress = i / (double) points;
+            Vec3 position = origin.add(direction.scale(SHAPED_CHARGE_JET_LENGTH * progress));
+            Vec3 velocity = direction.scale(0.02D + progress * 0.04D);
+
+            serverLevel.sendParticles(
+                    ParticleTypes.FLAME,
+                    position.x, position.y, position.z,
+                    2,
+                    0.025D, 0.025D, 0.025D,
+                    0.01D
+            );
+            serverLevel.sendParticles(
+                    ParticleTypes.SMALL_FLAME,
+                    position.x, position.y, position.z,
+                    0,
+                    velocity.x, velocity.y, velocity.z,
+                    1.0D
+            );
+        }
+    }
+
     private boolean tryStickToBlock(BlockHitResult result)
     {
         if (getGrenadeType() != Type.STICKY_GRENADE)
@@ -454,7 +603,27 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         if (!this.level().isClientSide() && !this.stickyStuck)
         {
             Vec3 normal = Vec3.atLowerCornerOf(result.getDirection().getNormal()).scale(0.08D);
-            stickAt(result.getLocation().add(normal));
+            stickAt(result.getLocation().add(normal), 100);
+        }
+
+        return true;
+    }
+
+    private boolean tryMagneticStickToBlock(BlockHitResult result)
+    {
+        if (getGrenadeType() != Type.MAGNETIC_GRENADE)
+        {
+            return false;
+        }
+
+        if (!this.level().isClientSide() && !this.stickyStuck)
+        {
+            Vec3 velocity = this.getDeltaMovement();
+            this.magneticJetDirection = velocity.lengthSqr() > 1.0E-4D
+                    ? velocity.normalize()
+                    : this.getLookAngle().normalize();
+            Vec3 normal = Vec3.atLowerCornerOf(result.getDirection().getNormal()).scale(0.08D);
+            stickAt(result.getLocation().add(normal), MAGNETIC_GRENADE_FUSE_TICKS);
         }
 
         return true;
@@ -472,16 +641,16 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             Entity target = result.getEntity();
             this.stickyTargetId = target.getId();
             this.stickyEntityOffset = result.getLocation().subtract(target.position());
-            stickAt(result.getLocation());
+            stickAt(result.getLocation(), 100);
         }
 
         return true;
     }
 
-    private void stickAt(Vec3 position)
+    private void stickAt(Vec3 position, int fuseTicks)
     {
         this.stickyStuck = true;
-        this.fuse = 100;
+        this.fuse = fuseTicks;
         this.setNoGravity(true);
         this.setDeltaMovement(Vec3.ZERO);
         this.setPos(position.x, position.y, position.z);
@@ -568,6 +737,17 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                         IMPACT_GRENADE_EXPLOSION_RADIUS,
                         Level.ExplosionInteraction.TNT
                 );
+            }
+            case SHAPED_CHARGE_GRENADE ->
+            {
+                Vec3 direction = this.getDeltaMovement().lengthSqr() > 1.0E-4D
+                        ? this.getDeltaMovement()
+                        : this.getLookAngle();
+                detonateShapedCharge(this.position(), direction);
+            }
+            case MAGNETIC_GRENADE ->
+            {
+                detonateMagneticGrenade();
             }
             case STICKY_GRENADE ->
             {
@@ -973,7 +1153,9 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         STICKY_GRENADE,          // липка граната
         GAS,   // газова
         SMOKE, // димова
-        GIGA;  // гіга граната
+        GIGA,  // гіга граната
+        SHAPED_CHARGE_GRENADE,   // кумулятивна граната
+        MAGNETIC_GRENADE;        // магнітна граната
 
         public Item getItem()
         {
@@ -982,6 +1164,8 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                 case FRAG_GRENADE -> CQCItems.FRAG_GRENADE.get();
                 case HIGH_EXPLOSIVE_GRENADE -> CQCItems.HIGH_EXPLOSIVE_GRENADE.get();
                 case IMPACT_GRENADE -> CQCItems.IMPACT_GRENADE.get();
+                case SHAPED_CHARGE_GRENADE -> CQCItems.SHAPED_CHARGE_GRENADE.get();
+                case MAGNETIC_GRENADE -> CQCItems.MAGNETIC_GRENADE.get();
                 case STICKY_GRENADE -> CQCItems.STICKY_GRENADE.get();
                 case GAS -> CQCItems.GAS_GRENADE.get();
                 case SMOKE -> CQCItems.SMOKE_GRENADE.get();
