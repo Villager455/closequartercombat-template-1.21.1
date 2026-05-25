@@ -1,6 +1,7 @@
 package com.rdc.cqc.entity;
 
 import com.rdc.cqc.item.CQCItems;
+import com.rdc.cqc.item.CQCDataComponents;
 import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -15,11 +16,14 @@ import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.ThrowableItemProjectile;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -155,6 +159,44 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     public void setFuse(int fuse)
     {
         this.fuse = fuse;
+    }
+
+    @Override
+    public boolean isPickable()
+    {
+        return !isSmokeEmitting() && !isGasEmitting();
+    }
+
+    @Override
+    public InteractionResult interact(Player player, InteractionHand hand)
+    {
+        if (isSmokeEmitting() || isGasEmitting() || this.fuse <= 0)
+        {
+            return InteractionResult.PASS;
+        }
+
+        if (!this.level().isClientSide())
+        {
+            ItemStack pickedStack = getGrenadeType().getItem().getDefaultInstance();
+            pickedStack.set(CQCDataComponents.GRENADE_FUSE.get(), this.fuse);
+
+            if (!player.getInventory().add(pickedStack))
+            {
+                player.drop(pickedStack, false);
+            }
+
+            this.level().playSound(
+                    null,
+                    this.getX(), this.getY(), this.getZ(),
+                    SoundEvents.ITEM_PICKUP,
+                    SoundSource.PLAYERS,
+                    0.35F,
+                    1.0F + this.random.nextFloat() * 0.2F
+            );
+            this.discard();
+        }
+
+        return InteractionResult.sidedSuccess(this.level().isClientSide());
     }
 
     public Type getGrenadeType()
