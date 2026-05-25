@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " A ",
+    " B ",
+    " C "
+  ],
+  "key": {
+    "A": {
+      "item": "closequartercombat:explosive_grenade_part"
+    },
+    "B": {
+      "item": "minecraft:stick"
+    },
+    "C": {
+      "item": "closequartercombat:fuse"
+    }
+  },
+  "result": {
+    "id": "closequartercombat:high_explosive_grenade",
+    "count": 1
+  }
+}

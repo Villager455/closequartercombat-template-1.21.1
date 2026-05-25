@@ -53,22 +53,38 @@ public class CQCItems
     // ============================
     //          ГРАНАТИ
     // ============================
-    // Кидаються з ПКМ. Через 3 секунди вибух (HE/DEMO), газова хмара (GAS) або дим (SMOKE).
+    // Кидаються з ПКМ. Через 5 секунд вибух, газова хмара або дим.
     // Логіка фізики/детонації — у ThrownGrenadeEntity. Stack-розмір = 1 (не стакаються).
 
-    public static final DeferredItem<Item> GRENADE = ITEMS.register(
-            "grenade",
+    public static final DeferredItem<Item> FRAG_GRENADE = ITEMS.register(
+            "frag_grenade",
             () -> new GrenadeItem(
                     new Item.Properties().stacksTo(1),
-                    ThrownGrenadeEntity.Type.HE
+                    ThrownGrenadeEntity.Type.FRAG_GRENADE
             )
     );
 
-    public static final DeferredItem<Item> DEMO_GRENADE = ITEMS.register(
-            "demo_grenade",
+    public static final DeferredItem<Item> HIGH_EXPLOSIVE_GRENADE = ITEMS.register(
+            "high_explosive_grenade",
             () -> new GrenadeItem(
                     new Item.Properties().stacksTo(1),
-                    ThrownGrenadeEntity.Type.DEMO
+                    ThrownGrenadeEntity.Type.HIGH_EXPLOSIVE_GRENADE
+            )
+    );
+
+    public static final DeferredItem<Item> IMPACT_GRENADE = ITEMS.register(
+            "impact_grenade",
+            () -> new GrenadeItem(
+                    new Item.Properties().stacksTo(1),
+                    ThrownGrenadeEntity.Type.IMPACT_GRENADE
+            )
+    );
+
+    public static final DeferredItem<Item> STICKY_GRENADE = ITEMS.register(
+            "sticky_grenade",
+            () -> new GrenadeItem(
+                    new Item.Properties().stacksTo(1),
+                    ThrownGrenadeEntity.Type.STICKY_GRENADE
             )
     );
 

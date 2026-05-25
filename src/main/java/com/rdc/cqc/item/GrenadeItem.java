@@ -23,12 +23,12 @@ import java.util.List;
  *
  * <ol>
  *     <li><b>ЛКМ ({@link #pullPin}):</b> «висмикується чека» — на стек записується
- *         компонент {@link CQCDataComponents#GRENADE_FUSE} зі стартовим значенням 60 тіків.
+ *         компонент {@link CQCDataComponents#GRENADE_FUSE} зі стартовим значенням 100 тіків.
  *         Граната ще лежить у руці; запускається ванільний звук запалу динаміту.</li>
  *     <li><b>ПКМ ({@link #use}):</b> викидаємо {@link ThrownGrenadeEntity}.
  *         Якщо чека вже висмикнута — entity отримує <i>залишок</i> фьюзу
  *         (час, який гравець уже протримав гранату, ВРАХОВУЄТЬСЯ). Інакше — entity
- *         має повний фьюз 60 тіків.</li>
+ *         має повний фьюз 100 тіків.</li>
  * </ol>
  *
  * <p>Якщо гравець не викине запалену гранату, {@link #inventoryTick} зменшує фьюз кожен тік
@@ -37,7 +37,7 @@ import java.util.List;
 public class GrenadeItem extends Item
 {
     /** Стартовий фьюз від моменту висмикування чеки. */
-    public static final int DEFAULT_FUSE_TICKS = 60;
+    public static final int DEFAULT_FUSE_TICKS = 100;
 
     private final ThrownGrenadeEntity.Type type;
 
@@ -81,6 +81,11 @@ public class GrenadeItem extends Item
      */
     public void pullPin(ServerLevel level, Player player, InteractionHand hand, ItemStack stack)
     {
+        if (this.type == ThrownGrenadeEntity.Type.IMPACT_GRENADE)
+        {
+            return;
+        }
+
         if (isPinPulled(stack))
         {
             return; // вже активовано
@@ -167,13 +172,13 @@ public class GrenadeItem extends Item
     {
         switch (this.type)
         {
-            case HE ->
+            case FRAG_GRENADE ->
             {
-                // HE граната: урагу від осколків без ламання блоків
+                // Frag Grenade: шкода від осколків без ламання блоків.
                 double explosionY = player.getY() + 0.5D;
-                ThrownGrenadeEntity.damageAndSpawnShrapnel(level, player.getX(), explosionY, player.getZ(), ThrownGrenadeEntity.HE_EXPLOSION_RADIUS, ThrownGrenadeEntity.HE_SHRAPNEL_DAMAGE, player);
-                ThrownGrenadeEntity.spawnHeExplosionParticles(level, player.getX(), explosionY + 0.25D, player.getZ());
-                ThrownGrenadeEntity.spawnShrapnelSmokeBurst(level, player.getX(), explosionY + 0.25D, player.getZ(), ThrownGrenadeEntity.HE_EXPLOSION_RADIUS, level.getRandom());
+                ThrownGrenadeEntity.damageAndSpawnShrapnel(level, player.getX(), explosionY, player.getZ(), ThrownGrenadeEntity.FRAG_GRENADE_EXPLOSION_RADIUS, ThrownGrenadeEntity.FRAG_GRENADE_SHRAPNEL_DAMAGE, player);
+                ThrownGrenadeEntity.spawnFragExplosionParticles(level, player.getX(), explosionY + 0.25D, player.getZ());
+                ThrownGrenadeEntity.spawnShrapnelSmokeBurst(level, player.getX(), explosionY + 0.25D, player.getZ(), ThrownGrenadeEntity.FRAG_GRENADE_EXPLOSION_RADIUS, level.getRandom());
                 level.levelEvent(2009,
                         new net.minecraft.core.BlockPos((int) player.getX(), (int) explosionY, (int) player.getZ()),
                         0);
@@ -184,13 +189,31 @@ public class GrenadeItem extends Item
                         1.6F, 1.0F
                 );
             }
-            case DEMO ->
+            case HIGH_EXPLOSIVE_GRENADE ->
             {
-                // Демо граната: повний вибух з ламанням блоків (мала сила)
+                // High Explosive Grenade: повний вибух з ламанням блоків (мала сила).
                 level.explode(
                         null,
                         player.getX(), player.getY() + 0.5D, player.getZ(),
-                        ThrownGrenadeEntity.DEMO_EXPLOSION_RADIUS,
+                        ThrownGrenadeEntity.HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
+                        Level.ExplosionInteraction.TNT
+                );
+            }
+            case IMPACT_GRENADE ->
+            {
+                level.explode(
+                        null,
+                        player.getX(), player.getY() + 0.5D, player.getZ(),
+                        ThrownGrenadeEntity.IMPACT_GRENADE_EXPLOSION_RADIUS,
+                        Level.ExplosionInteraction.TNT
+                );
+            }
+            case STICKY_GRENADE ->
+            {
+                level.explode(
+                        null,
+                        player.getX(), player.getY() + 0.5D, player.getZ(),
+                        ThrownGrenadeEntity.HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
                         Level.ExplosionInteraction.TNT
                 );
             }

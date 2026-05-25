@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " C ",
+    "ABA",
+    " A "
+  ],
+  "key": {
+    "A": {
+      "item": "minecraft:iron_nugget"
+    },
+    "B": {
+      "item": "closequartercombat:explosive_grenade_part"
+    },
+    "C": {
+      "item": "closequartercombat:fuse"
+    }
+  },
+  "result": {
+    "id": "closequartercombat:frag_grenade",
+    "count": 1
+  }
+}

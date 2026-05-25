@@ -67,9 +67,10 @@ public class GrenadeRenderer extends EntityRenderer<ThrownGrenadeEntity>
         // Логіка обертання:
         //  • Якщо граната лежить (resting) — миттєвий поворот на 90° по X для ефекту
         //    «граната на боку». Це стосується ВСІХ типів.
-        //  • Якщо в польоті — обертаємо Demolition та Giga Grenade.
+        //  • Якщо в польоті — обертаємо High Explosive, Sticky та Giga Grenade.
         ThrownGrenadeEntity.Type grenadeType = entity.getGrenadeType();
-        boolean shouldSpin = grenadeType == ThrownGrenadeEntity.Type.DEMO
+        boolean shouldSpin = grenadeType == ThrownGrenadeEntity.Type.HIGH_EXPLOSIVE_GRENADE
+                || grenadeType == ThrownGrenadeEntity.Type.STICKY_GRENADE
                 || grenadeType == ThrownGrenadeEntity.Type.GIGA;
 
         if (entity.isResting())

@@ -40,7 +40,7 @@ public class CloseQuarterCombat
 
                     .withTabsBefore(CreativeModeTabs.COMBAT)
 
-                    .icon(() -> CQCItems.GRENADE.get().getDefaultInstance())
+                    .icon(() -> CQCItems.FRAG_GRENADE.get().getDefaultInstance())
 
                     .displayItems((parameters, output) ->
                     {
@@ -54,8 +54,10 @@ public class CloseQuarterCombat
                         output.accept(CQCItems.HEAT_GRENADE_PART.get());
 
                         // Гранати
-                        output.accept(CQCItems.GRENADE.get());
-                        output.accept(CQCItems.DEMO_GRENADE.get());
+                        output.accept(CQCItems.FRAG_GRENADE.get());
+                        output.accept(CQCItems.HIGH_EXPLOSIVE_GRENADE.get());
+                        output.accept(CQCItems.IMPACT_GRENADE.get());
+                        output.accept(CQCItems.STICKY_GRENADE.get());
                         output.accept(CQCItems.GIGA_GRENADE.get());
                         output.accept(CQCItems.GAS_GRENADE.get());
                         output.accept(CQCItems.SMOKE_GRENADE.get());

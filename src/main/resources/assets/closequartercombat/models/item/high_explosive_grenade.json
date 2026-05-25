@@ -1,8 +1,8 @@
 {
 	"credit": "Made with Blockbench",
 	"textures": {
-		"0": "closequartercombat:item/demo",
-		"particle": "closequartercombat:item/demo"
+		"0": "closequartercombat:item/high_explosive_grenade",
+		"particle": "closequartercombat:item/high_explosive_grenade"
 	},
 	"elements": [
 		{

@@ -16,7 +16,7 @@ public class CQCEntities
     public static final DeferredRegister<EntityType<?>> ENTITY_TYPES =
             DeferredRegister.create(Registries.ENTITY_TYPE, CloseQuarterCombat.MODID);
 
-    /** Універсальна гранатна сутність (HE/DEMO/GAS — обирається через {@link ThrownGrenadeEntity#getGrenadeType()}). */
+    /** Універсальна гранатна сутність (тип обирається через {@link ThrownGrenadeEntity#getGrenadeType()}). */
     public static final DeferredHolder<EntityType<?>, EntityType<ThrownGrenadeEntity>> THROWN_GRENADE =
             ENTITY_TYPES.register("thrown_grenade", () -> EntityType.Builder
                     .<ThrownGrenadeEntity>of(ThrownGrenadeEntity::new, MobCategory.MISC)

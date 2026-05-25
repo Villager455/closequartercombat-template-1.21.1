@@ -21,6 +21,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
@@ -46,7 +47,7 @@ import net.minecraft.world.phys.Vec3;
  *         (близько 30% по горизонталі, 25% по вертикалі) — щоб граната не дуже
  *         далеко стрибала.</li>
  *     <li>При зіткненні з ентіті — несильний штовхач (knockback), граната продовжує літати.</li>
- *     <li>Фьюз = 60 тіків (3 с). При досягненні нуля — вибух відповідно до типу.</li>
+ *     <li>Фьюз = 100 тіків (5 с). При досягненні нуля — вибух відповідно до типу.</li>
  * </ul>
  */
 public class ThrownGrenadeEntity extends ThrowableItemProjectile
@@ -76,18 +77,24 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             SynchedEntityData.defineId(ThrownGrenadeEntity.class, EntityDataSerializers.BOOLEAN);
 
     /** Залишок фьюзу в тіках. Не синхронізується (логіка лише на сервері). */
-    private int fuse = 60;
+    private int fuse = 100;
     private int smokeEmitterAge = 0;
     private int gasEmitterAge = 0;
+    private boolean stickyStuck = false;
+    private int stickyTargetId = -1;
+    private Vec3 stickyEntityOffset = Vec3.ZERO;
 
-    /** Радіус ураження для HE гранати. */
-    public static final float HE_EXPLOSION_RADIUS = 10.0F;
+    /** Радіус ураження для осколкової гранати. */
+    public static final float FRAG_GRENADE_EXPLOSION_RADIUS = 10.0F;
 
-    /** Максимальна шкода від осколків HE гранати в центрі вибуху. */
-    public static final float HE_SHRAPNEL_DAMAGE = 90.0F;
+    /** Максимальна шкода від осколків Frag Grenade в центрі вибуху. */
+    public static final float FRAG_GRENADE_SHRAPNEL_DAMAGE = 90.0F;
 
-    /** Радіус вибуху для DEMO гранати (меньший за TNT). */
-    public static final float DEMO_EXPLOSION_RADIUS = 2.2F;
+    /** Радіус вибуху для High Explosive Grenade (менший за TNT). */
+    public static final float HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS = 2.2F;
+
+    /** Радіус вибуху для Impact Grenade — приблизно 66% від фугасної. */
+    public static final float IMPACT_GRENADE_EXPLOSION_RADIUS = HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS * 0.66F;
 
     /** Радіус вибуху для GIGA гранати (трохи сильніший за TNT). */
     public static final float GIGA_EXPLOSION_RADIUS = 4.5F;
@@ -133,7 +140,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     protected void defineSynchedData(SynchedEntityData.Builder builder)
     {
         super.defineSynchedData(builder);
-        builder.define(DATA_TYPE, Type.HE.ordinal());
+        builder.define(DATA_TYPE, Type.FRAG_GRENADE.ordinal());
         builder.define(DATA_RESTING, Boolean.FALSE);
         builder.define(DATA_SMOKE_EMITTING, Boolean.FALSE);
         builder.define(DATA_GAS_EMITTING, Boolean.FALSE);
@@ -164,7 +171,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     @Override
     public boolean isPickable()
     {
-        return !isSmokeEmitting() && !isGasEmitting();
+        return getGrenadeType() != Type.IMPACT_GRENADE && !isSmokeEmitting() && !isGasEmitting();
     }
 
     @Override
@@ -221,7 +228,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         }
         catch (Exception ignored)
         {
-            return CQCItems.GRENADE.get();
+            return CQCItems.FRAG_GRENADE.get();
         }
     }
 
@@ -274,6 +281,16 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         // Лічильник + вибух + перерахунок resting-стану — лише на сервері.
         if (!this.level().isClientSide())
         {
+            if (getGrenadeType() == Type.STICKY_GRENADE)
+            {
+                if (!this.stickyStuck)
+                {
+                    return;
+                }
+
+                updateStickyAttachment();
+            }
+
             // Після приземлення стан лишається true, щоб дрібне ковзання не запускало spin знову.
             boolean resting = this.entityData.get(DATA_RESTING) || this.onGround();
             if (resting != this.entityData.get(DATA_RESTING))
@@ -313,6 +330,16 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     @Override
     protected void onHitBlock(BlockHitResult result)
     {
+        if (tryImpactDetonate())
+        {
+            return;
+        }
+
+        if (tryStickToBlock(result))
+        {
+            return;
+        }
+
         // НЕ викликаємо super — інакше ThrowableItemProjectile сам себе discard'не.
         Vec3 velocity = this.getDeltaMovement();
         Vec3 reflected;
@@ -362,6 +389,16 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     @Override
     protected void onHitEntity(EntityHitResult result)
     {
+        if (tryImpactDetonate())
+        {
+            return;
+        }
+
+        if (tryStickToEntity(result))
+        {
+            return;
+        }
+
         super.onHitEntity(result);
         if (result.getEntity() instanceof LivingEntity living)
         {
@@ -391,6 +428,97 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         // НЕ викликаємо super.onHit() — це би видалило сутність.
     }
 
+    private boolean tryImpactDetonate()
+    {
+        if (getGrenadeType() != Type.IMPACT_GRENADE)
+        {
+            return false;
+        }
+
+        if (!this.level().isClientSide() && !this.isRemoved())
+        {
+            detonate();
+            this.discard();
+        }
+
+        return true;
+    }
+
+    private boolean tryStickToBlock(BlockHitResult result)
+    {
+        if (getGrenadeType() != Type.STICKY_GRENADE)
+        {
+            return false;
+        }
+
+        if (!this.level().isClientSide() && !this.stickyStuck)
+        {
+            Vec3 normal = Vec3.atLowerCornerOf(result.getDirection().getNormal()).scale(0.08D);
+            stickAt(result.getLocation().add(normal));
+        }
+
+        return true;
+    }
+
+    private boolean tryStickToEntity(EntityHitResult result)
+    {
+        if (getGrenadeType() != Type.STICKY_GRENADE)
+        {
+            return false;
+        }
+
+        if (!this.level().isClientSide() && !this.stickyStuck)
+        {
+            Entity target = result.getEntity();
+            this.stickyTargetId = target.getId();
+            this.stickyEntityOffset = result.getLocation().subtract(target.position());
+            stickAt(result.getLocation());
+        }
+
+        return true;
+    }
+
+    private void stickAt(Vec3 position)
+    {
+        this.stickyStuck = true;
+        this.fuse = 100;
+        this.setNoGravity(true);
+        this.setDeltaMovement(Vec3.ZERO);
+        this.setPos(position.x, position.y, position.z);
+        this.entityData.set(DATA_RESTING, Boolean.TRUE);
+
+        this.level().playSound(
+                null, this.getX(), this.getY(), this.getZ(),
+                SoundEvents.SLIME_SQUISH, SoundSource.NEUTRAL,
+                0.65F, 0.85F + this.random.nextFloat() * 0.25F
+        );
+    }
+
+    private void updateStickyAttachment()
+    {
+        this.setDeltaMovement(Vec3.ZERO);
+
+        if (this.stickyTargetId < 0)
+        {
+            return;
+        }
+
+        if (!(this.level() instanceof ServerLevel serverLevel))
+        {
+            return;
+        }
+
+        Entity target = serverLevel.getEntity(this.stickyTargetId);
+        if (target == null || target.isRemoved())
+        {
+            this.stickyTargetId = -1;
+            return;
+        }
+
+        Vec3 attachedPosition = target.position().add(this.stickyEntityOffset);
+        this.setPos(attachedPosition.x, attachedPosition.y, attachedPosition.z);
+    }
+
     /**
      * Вибух гранати відповідно до типу. Викликається лише на сервері.
      * ВИПРАВЛЕНО: частинки тепер правильно синхронізуються на клієнти через levelEvent
@@ -402,12 +530,12 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         Type type = getGrenadeType();
         switch (type)
         {
-            case HE ->
+            case FRAG_GRENADE ->
             {
-                // HE граната: шкода від осколків без ламання блоків
-                spawnShrapnelAndDamage(HE_EXPLOSION_RADIUS, HE_SHRAPNEL_DAMAGE);
-                spawnHeExplosionParticles(this.level(), this.getX(), this.getY() + 0.25D, this.getZ());
-                spawnShrapnelSmokeBurst(this.level(), this.getX(), this.getY() + 0.25D, this.getZ(), HE_EXPLOSION_RADIUS, this.random);
+                // Frag Grenade: шкода від осколків без ламання блоків.
+                spawnShrapnelAndDamage(FRAG_GRENADE_EXPLOSION_RADIUS, FRAG_GRENADE_SHRAPNEL_DAMAGE);
+                spawnFragExplosionParticles(this.level(), this.getX(), this.getY() + 0.25D, this.getZ());
+                spawnShrapnelSmokeBurst(this.level(), this.getX(), this.getY() + 0.25D, this.getZ(), FRAG_GRENADE_EXPLOSION_RADIUS, this.random);
 
                 // 🔥 КЛЮЧ: Синхронізуємо частинки на клієнти через levelEvent
                 // Код 2009 = EXPLOSION_LARGE_SMOKE (як TNT) — автоматично синхронізується
@@ -422,13 +550,31 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                         1.6F, 1.0F
                 );
             }
-            case DEMO ->
+            case HIGH_EXPLOSIVE_GRENADE ->
             {
-                // Демо граната: повний вибух з ламанням блоків, але слабше за TNT.
+                // High Explosive Grenade: повний вибух з ламанням блоків, але слабше за TNT.
                 this.level().explode(
                         null,
                         this.getX(), this.getY(), this.getZ(),
-                        DEMO_EXPLOSION_RADIUS,
+                        HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
+                        Level.ExplosionInteraction.TNT
+                );
+            }
+            case IMPACT_GRENADE ->
+            {
+                this.level().explode(
+                        null,
+                        this.getX(), this.getY(), this.getZ(),
+                        IMPACT_GRENADE_EXPLOSION_RADIUS,
+                        Level.ExplosionInteraction.TNT
+                );
+            }
+            case STICKY_GRENADE ->
+            {
+                this.level().explode(
+                        null,
+                        this.getX(), this.getY(), this.getZ(),
+                        HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
                         Level.ExplosionInteraction.TNT
                 );
             }
@@ -480,8 +626,8 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         damageAndSpawnShrapnel(this.level(), this.getX(), this.getY(), this.getZ(), radius, damage, (LivingEntity) this.getOwner());
     }
 
-    /** Додає ванільний TNT-like спалах вибухових частинок для HE без ламання блоків. */
-    public static void spawnHeExplosionParticles(Level level, double x, double y, double z)
+    /** Додає ванільний TNT-like спалах вибухових частинок для Frag Grenade без ламання блоків. */
+    public static void spawnFragExplosionParticles(Level level, double x, double y, double z)
     {
         if (!(level instanceof ServerLevel serverLevel))
         {
@@ -493,7 +639,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     }
 
     /**
-     * Димові "штрихи" від центру вибуху назовні, щоб HE виглядала як осколкова.
+     * Димові "штрихи" від центру вибуху назовні, щоб Frag Grenade виглядала як осколкова.
      */
     public static void spawnShrapnelSmokeBurst(Level level, double x, double y, double z,
                                                float radius, RandomSource random)
@@ -821,8 +967,10 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     /** Тип гранати — визначає поведінку вибуху та item-модель для рендеру. */
     public enum Type
     {
-        HE,    // звичайна (grenade)
-        DEMO,  // граната з ручкою
+        FRAG_GRENADE,            // осколкова граната
+        HIGH_EXPLOSIVE_GRENADE,  // фугасна граната
+        IMPACT_GRENADE,          // ударна граната
+        STICKY_GRENADE,          // липка граната
         GAS,   // газова
         SMOKE, // димова
         GIGA;  // гіга граната
@@ -831,8 +979,10 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         {
             return switch (this)
             {
-                case HE -> CQCItems.GRENADE.get();
-                case DEMO -> CQCItems.DEMO_GRENADE.get();
+                case FRAG_GRENADE -> CQCItems.FRAG_GRENADE.get();
+                case HIGH_EXPLOSIVE_GRENADE -> CQCItems.HIGH_EXPLOSIVE_GRENADE.get();
+                case IMPACT_GRENADE -> CQCItems.IMPACT_GRENADE.get();
+                case STICKY_GRENADE -> CQCItems.STICKY_GRENADE.get();
                 case GAS -> CQCItems.GAS_GRENADE.get();
                 case SMOKE -> CQCItems.SMOKE_GRENADE.get();
                 case GIGA -> CQCItems.GIGA_GRENADE.get();
