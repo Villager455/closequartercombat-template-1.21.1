@@ -60,8 +60,13 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     private static final EntityDataAccessor<Boolean> DATA_RESTING =
             SynchedEntityData.defineId(ThrownGrenadeEntity.class, EntityDataSerializers.BOOLEAN);
 
+    /** Smoke-граната після детонації стає невидимим емітером димової завіси. */
+    private static final EntityDataAccessor<Boolean> DATA_SMOKE_EMITTING =
+            SynchedEntityData.defineId(ThrownGrenadeEntity.class, EntityDataSerializers.BOOLEAN);
+
     /** Залишок фьюзу в тіках. Не синхронізується (логіка лише на сервері). */
     private int fuse = 60;
+    private int smokeEmitterAge = 0;
 
     /** Радіус ураження для HE гранати. */
     public static final float HE_EXPLOSION_RADIUS = 7.5F;
@@ -85,15 +90,14 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     private static final int GAS_CLOUD_VERTICAL_LAYERS = 3;
     private static final double GAS_CLOUD_LAYER_OFFSET_Y = 1.4D;
 
-    /** Радіус димової хмари (більший за газову). */
-    private static final float SMOKE_CLOUD_RADIUS = 10.0F;
+    /** Радіус димової завіси після розростання. */
+    private static final float SMOKE_CLOUD_RADIUS = 8.0F;
 
     /** Тривалість димової хмари у тіках (30 с = 600). */
     private static final int SMOKE_CLOUD_DURATION_TICKS = 600;
 
-    /** Висота "димового стовпа" — кількість шарів AreaEffectCloud по вертикалі. */
-    private static final int SMOKE_CLOUD_VERTICAL_LAYERS = 4;
-    private static final double SMOKE_CLOUD_LAYER_OFFSET_Y = 1.5D;
+    /** Час розростання димової завіси до повного радіуса (5 с). */
+    private static final int SMOKE_CLOUD_GROWTH_TICKS = 100;
 
     public ThrownGrenadeEntity(EntityType<? extends ThrownGrenadeEntity> entityType, Level level)
     {
@@ -115,12 +119,18 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         super.defineSynchedData(builder);
         builder.define(DATA_TYPE, Type.HE.ordinal());
         builder.define(DATA_RESTING, Boolean.FALSE);
+        builder.define(DATA_SMOKE_EMITTING, Boolean.FALSE);
     }
 
     /** Чи граната зараз лежить (швидкість майже нуль). Використовується клієнтом для зупинки обертання. */
     public boolean isResting()
     {
         return this.entityData.get(DATA_RESTING);
+    }
+
+    public boolean isSmokeEmitting()
+    {
+        return this.entityData.get(DATA_SMOKE_EMITTING);
     }
 
     /** Виставляє залишок фьюзу (у тіках). Використовується для «винесення» залишку з активованої гранати-предмета. */
@@ -170,6 +180,21 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     {
         super.tick();
 
+        if (isSmokeEmitting())
+        {
+            if (!this.level().isClientSide())
+            {
+                this.setDeltaMovement(Vec3.ZERO);
+                spawnSmokeEmitterTick();
+                this.smokeEmitterAge++;
+                if (this.smokeEmitterAge >= SMOKE_CLOUD_DURATION_TICKS)
+                {
+                    this.discard();
+                }
+            }
+            return;
+        }
+
         // Лічильник + вибух + перерахунок resting-стану — лише на сервері.
         if (!this.level().isClientSide())
         {
@@ -184,8 +209,12 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
 
             if (this.fuse <= 0 && !this.isRemoved())
             {
+                Type type = getGrenadeType();
                 detonate();
-                this.discard();
+                if (type != Type.SMOKE)
+                {
+                    this.discard();
+                }
             }
         }
         else
@@ -346,7 +375,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             case GAS ->
             {
                 spawnPoisonCloud();
-                spawnRandomGasParticles();
+                spawnGasPlumeParticles();
                 this.level().playSound(
                         null,
                         this.getX(), this.getY(), this.getZ(),
@@ -356,8 +385,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             }
             case SMOKE ->
             {
-                spawnSmokeCloud();
-                spawnRandomSmokeParticles();
+                startSmokeEmitter();
                 this.level().playSound(
                         null,
                         this.getX(), this.getY(), this.getZ(),
@@ -560,171 +588,97 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         }
     }
 
-    /**
-     * Нова система газу на базі noise-патерну.
-     * Частинки спавняться як "щільні області хвилі", а не випадково.
-     */
-    private void spawnRandomGasParticles()
+    private void spawnGasPlumeParticles()
     {
-        // 🔥 дуже повільний глобальний темп спавну
-        if (this.random.nextFloat() < 0.85F)
+        spawnRisingPlumeParticles(ParticleTypes.SNEEZE, ParticleTypes.WHITE_SMOKE, 95, 5.6D, 1.15D, 0.055D);
+    }
+
+    private void startSmokeEmitter()
+    {
+        this.entityData.set(DATA_SMOKE_EMITTING, Boolean.TRUE);
+        this.entityData.set(DATA_RESTING, Boolean.TRUE);
+        this.smokeEmitterAge = 0;
+        this.setNoGravity(true);
+        this.setDeltaMovement(Vec3.ZERO);
+    }
+
+    private void spawnSmokeEmitterTick()
+    {
+        if (!(this.level() instanceof ServerLevel serverLevel))
         {
             return;
         }
 
-        // -----------------------------------
-        // 🌫 NOISE TIME (псевдо-час хвилі)
-        // -----------------------------------
-        double time = this.level().getGameTime() * 0.02D;
+        double growth = Math.min(1.0D, this.smokeEmitterAge / (double) SMOKE_CLOUD_GROWTH_TICKS);
+        double easedGrowth = growth * growth * (3.0D - 2.0D * growth);
+        double radius = 0.25D + SMOKE_CLOUD_RADIUS * easedGrowth;
+        int particles = 4 + (int) (18 * easedGrowth);
 
-        // -----------------------------------
-        // 🌫 центральна точка газу
-        // -----------------------------------
+        for (int i = 0; i < particles; i++)
+        {
+            double angle = this.random.nextDouble() * Math.PI * 2.0D;
+            double distance = Math.sqrt(this.random.nextDouble()) * radius;
+            double height = 0.05D + this.random.nextDouble() * (0.8D + 3.8D * easedGrowth);
+            double wave = Math.sin((this.smokeEmitterAge + i * 13) * 0.13D) * 0.35D * easedGrowth;
+
+            double x = this.getX() + Math.cos(angle) * distance + Math.cos(angle + Math.PI * 0.5D) * wave;
+            double y = this.getY() + height;
+            double z = this.getZ() + Math.sin(angle) * distance + Math.sin(angle + Math.PI * 0.5D) * wave;
+
+            double vx = Math.cos(angle) * 0.01D * easedGrowth + this.random.nextGaussian() * 0.01D;
+            double vy = 0.025D + this.random.nextDouble() * (0.035D + 0.025D * easedGrowth);
+            double vz = Math.sin(angle) * 0.01D * easedGrowth + this.random.nextGaussian() * 0.01D;
+
+            serverLevel.sendParticles(
+                    easedGrowth < 0.55D ? ParticleTypes.SMOKE : ParticleTypes.CAMPFIRE_COSY_SMOKE,
+                    x, y, z,
+                    0,
+                    vx, vy, vz,
+                    1.0D
+            );
+        }
+    }
+
+    private void spawnRisingPlumeParticles(net.minecraft.core.particles.SimpleParticleType smallParticle,
+                                           net.minecraft.core.particles.SimpleParticleType largeParticle,
+                                           int particleCount,
+                                           double plumeHeight,
+                                           double maxWaverRadius,
+                                           double upwardSpeed)
+    {
+        if (!(this.level() instanceof ServerLevel serverLevel))
+        {
+            return;
+        }
+
         double centerX = this.getX();
-        double centerY = this.getY();
+        double centerY = this.getY() + 0.15D;
         double centerZ = this.getZ();
+        double timeSeed = this.random.nextDouble() * Math.PI * 2.0D;
 
-        // -----------------------------------
-        // 🌫 кількість "семплів поля"
-        // -----------------------------------
-        int samples = 6 + this.random.nextInt(4);
-
-        for (int i = 0; i < samples; i++)
-        {
-            double angle = (Math.PI * 2.0D) * (i / (double) samples);
-
-            // -----------------------------------
-            // 🌫 NOISE-радіус (хвиля замість кола)
-            // -----------------------------------
-            double wave =
-                    Math.sin(angle * 2.0D + time) * 0.5D +
-                            Math.cos(angle * 3.0D - time * 1.3D) * 0.5D;
-
-            double baseRadius =
-                    GAS_CLOUD_RADIUS * (0.4D + wave * 0.4D);
-
-            // -----------------------------------
-            // 🌫 позиція в полі
-            // -----------------------------------
-            double x =
-                    centerX + Math.cos(angle) * baseRadius;
-
-            double z =
-                    centerZ + Math.sin(angle) * baseRadius;
-
-            // -----------------------------------
-            // 🌫 вертикальний noise (низький газ)
-            // -----------------------------------
-            double y =
-                    centerY +
-                            (Math.sin(time + i) * 0.15D) +
-                            this.random.nextDouble() * 0.1D;
-
-            // -----------------------------------
-            // 🌫 ще менше руху (майже статичний газ)
-            // -----------------------------------
-            double vx =
-                    Math.sin(time + i) * 0.002D;
-
-            double vy =
-                    -0.002D;
-
-            double vz =
-                    Math.cos(time + i) * 0.002D;
-
-            this.level().addParticle(
-                    ParticleTypes.SNEEZE,
-                    x, y, z,
-                    vx, vy, vz
-            );
-        }
-
-        // -----------------------------------
-        // 🌫 рідкісні "сплески" (деталі життя газу)
-        // -----------------------------------
-        if (this.random.nextFloat() < 0.2F)
-        {
-            spawnGasMicroBursts();
-        }
-    }
-
-    /**
-     * Дуже рідкі мікро-сплески газу (локальні згустки).
-     */
-    private void spawnGasMicroBursts()
-    {
-        int count = 2 + this.random.nextInt(2);
-
-        for (int i = 0; i < count; i++)
-        {
-            double x = this.getX() + (this.random.nextGaussian() * 0.2D);
-            double y = this.getY() + this.random.nextDouble() * 0.15D;
-            double z = this.getZ() + (this.random.nextGaussian() * 0.2D);
-
-            this.level().addParticle(
-                    ParticleTypes.SNEEZE,
-                    x, y, z,
-                    0.0D,
-                    -0.002D,
-                    0.0D
-            );
-        }
-    }
-
-    /**
-     * Створює велику безшкідливу димову хмару для задимлення (SMOKE гранат).
-     * На відміну від газової гранати, не має ефектів отруєння/нудоти.
-     */
-    private void spawnSmokeCloud()
-    {
-        for (int i = 0; i < SMOKE_CLOUD_VERTICAL_LAYERS; i++)
-        {
-            double yOffset = i * SMOKE_CLOUD_LAYER_OFFSET_Y;
-            AreaEffectCloud cloud = new AreaEffectCloud(
-                    this.level(),
-                    this.getX(),
-                    this.getY() + yOffset,
-                    this.getZ()
-            );
-            if (this.getOwner() instanceof LivingEntity owner)
-            {
-                cloud.setOwner(owner);
-            }
-            cloud.setRadius(SMOKE_CLOUD_RADIUS);
-            cloud.setRadiusOnUse(0.0F);
-            cloud.setRadiusPerTick(0.0F);
-            cloud.setWaitTime(10);
-            cloud.setDuration(SMOKE_CLOUD_DURATION_TICKS);
-            // Дим без шкідливих ефектів - просто візуальний ефект
-            cloud.setParticle(ParticleTypes.SMOKE);
-
-            this.level().addFreshEntity(cloud);
-        }
-    }
-
-    /**
-     * Генерує випадкові сіро-білі частинки дима у великій зоні.
-     */
-    private void spawnRandomSmokeParticles()
-    {
-        int particleCount = 120;
         for (int i = 0; i < particleCount; i++)
         {
-            // Випадкова позиція у межах більшої зони
-            double angle = this.random.nextDouble() * Math.PI * 2;
-            double distance = this.random.nextDouble() * SMOKE_CLOUD_RADIUS;
-            double height = this.random.nextDouble() * (SMOKE_CLOUD_VERTICAL_LAYERS * SMOKE_CLOUD_LAYER_OFFSET_Y);
+            double progress = i / (double) Math.max(1, particleCount - 1);
+            double height = progress * plumeHeight;
+            double waverRadius = maxWaverRadius * progress * progress;
+            double angle = timeSeed + progress * Math.PI * 5.0D + this.random.nextGaussian() * 0.35D;
+            double wobble = Math.sin(progress * Math.PI * 6.0D + timeSeed) * 0.35D;
 
-            double x = this.getX() + Math.cos(angle) * distance;
-            double y = this.getY() + height;
-            double z = this.getZ() + Math.sin(angle) * distance;
+            double x = centerX + Math.cos(angle) * (waverRadius + wobble * progress);
+            double y = centerY + height + this.random.nextDouble() * 0.25D;
+            double z = centerZ + Math.sin(angle) * (waverRadius - wobble * progress);
 
-            // Уповільнена швидкість для реалістичного розповсюдження дима
-            double vx = (this.random.nextDouble() - 0.5D) * 0.15D;
-            double vy = this.random.nextDouble() * 0.05D;
-            double vz = (this.random.nextDouble() - 0.5D) * 0.15D;
+            double vx = Math.cos(angle + Math.PI * 0.5D) * 0.015D * progress + this.random.nextGaussian() * 0.01D;
+            double vy = upwardSpeed * (0.65D + progress * 0.9D);
+            double vz = Math.sin(angle + Math.PI * 0.5D) * 0.015D * progress + this.random.nextGaussian() * 0.01D;
 
-            this.level().addParticle(ParticleTypes.SMOKE, x, y, z, vx, vy, vz);
+            serverLevel.sendParticles(
+                    progress < 0.42D ? smallParticle : largeParticle,
+                    x, y, z,
+                    0,
+                    vx, vy, vz,
+                    1.0D
+            );
         }
     }
 

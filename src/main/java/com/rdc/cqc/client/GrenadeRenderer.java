@@ -51,6 +51,11 @@ public class GrenadeRenderer extends EntityRenderer<ThrownGrenadeEntity>
                        MultiBufferSource buffer,
                        int packedLight)
     {
+        if (entity.isSmokeEmitting())
+        {
+            return;
+        }
+
         poseStack.pushPose();
 
         // Збираємо item-модель, що відповідає типу гранати.
