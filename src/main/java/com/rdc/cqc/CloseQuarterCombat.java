@@ -4,7 +4,6 @@ import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
 import com.rdc.cqc.entity.CQCEntities;
-import com.rdc.cqc.item.CQCArmorMaterials;
 import com.rdc.cqc.item.CQCDataComponents;
 import com.rdc.cqc.item.CQCItems;
 import com.rdc.cqc.network.PullPinPayload;
@@ -41,30 +40,12 @@ public class CloseQuarterCombat
 
                     .withTabsBefore(CreativeModeTabs.COMBAT)
 
-                    .icon(() -> CQCItems.OFFICER_SABER.get().getDefaultInstance())
+                    .icon(() -> CQCItems.GRENADE.get().getDefaultInstance())
 
                     .displayItems((parameters, output) ->
                     {
-                        output.accept(CQCItems.OFFICER_SABER.get());
-                        output.accept(CQCItems.MACHETE.get());
-                        output.accept(CQCItems.COMBAT_KNIFE.get());
-                        output.accept(CQCItems.TRENCH_SHOVEL.get());
-                        output.accept(CQCItems.PICKAXE_WEAPON.get());
-
-                        // Протигази
+                        // Протигаз
                         output.accept(CQCItems.GAS_MASK.get());
-                        output.accept(CQCItems.GAS_MASK_S.get());
-                        output.accept(CQCItems.GAS_MASK_X.get());
-
-                        // Плащі — комплекти S та X
-                        output.accept(CQCItems.TRENCHCOAT_CHEST_S.get());
-                        output.accept(CQCItems.TRENCHCOAT_LEGS_S.get());
-                        output.accept(CQCItems.TRENCHCOAT_CHEST_X.get());
-                        output.accept(CQCItems.TRENCHCOAT_LEGS_X.get());
-
-                        // Крабова броня
-                        output.accept(CQCItems.LOBSTER_HELMET.get());
-                        output.accept(CQCItems.LOBSTER_CHEST.get());
 
                         // Гранати
                         output.accept(CQCItems.GRENADE.get());
@@ -78,9 +59,7 @@ public class CloseQuarterCombat
 
     public CloseQuarterCombat(IEventBus modEventBus, ModContainer modContainer)
     {
-        // Реєстрація матеріалів броні (для TrenchCoat S/X), предметів, сутностей,
-        // data-компонентів та мережевих пакетів.
-        CQCArmorMaterials.ARMOR_MATERIALS.register(modEventBus);
+        // Реєстрація предметів, сутностей, data-компонентів та мережевих пакетів.
         CQCItems.ITEMS.register(modEventBus);
         CQCEntities.ENTITY_TYPES.register(modEventBus);
         CQCDataComponents.COMPONENTS.register(modEventBus);
@@ -94,7 +73,7 @@ public class CloseQuarterCombat
         NeoForge.EVENT_BUS.addListener(CQCEvents::onMobEffectApplicable);
         NeoForge.EVENT_BUS.addListener(CQCEvents::onLivingEquipmentChange);
 
-        LOGGER.info("Close Quarter Combat loaded!");
+        LOGGER.info("Simple Grenades loaded!");
     }
 
     /** Реєстрація custom payload-ів моду. */

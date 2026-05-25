@@ -46,7 +46,7 @@ authors="Villager__"
 
 # The description text for the mod (multi line!) (#mandatory)
 description='''
-Close Quarter Combat weapons for Redcon Event
+Simple Grenades for Minecraft
 '''
 
 # The [[mixins]] block allows you to declare your mixin config to FML so that it gets loaded.

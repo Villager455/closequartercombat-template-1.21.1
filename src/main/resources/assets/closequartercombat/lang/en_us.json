@@ -1,33 +1,17 @@
 {
-  "itemGroup.closequartercombat.cqc_tab": "Close Quarter Combat",
+  "itemGroup.closequartercombat.cqc_tab": "Simple Grenades",
   "block.closequartercombat.example_block": "Example Block",
   "item.closequartercombat.example_item": "Example Item",
 
-  "closequartercombat.configuration.title": "Close Quarter Combat Configs",
-  "closequartercombat.configuration.section.closequartercombat.common.toml": "Close Quarter Combat Configs",
-  "closequartercombat.configuration.section.closequartercombat.common.toml.title": "Close Quarter Combat Configs",
+  "closequartercombat.configuration.title": "Simple Grenades Configs",
+  "closequartercombat.configuration.section.closequartercombat.common.toml": "Simple Grenades Configs",
+  "closequartercombat.configuration.section.closequartercombat.common.toml.title": "Simple Grenades Configs",
   "closequartercombat.configuration.items": "Item List",
   "closequartercombat.configuration.logDirtBlock": "Log Dirt Block",
   "closequartercombat.configuration.magicNumberIntroduction": "Magic Number Text",
   "closequartercombat.configuration.magicNumber": "Magic Number",
 
-  "item.closequartercombat.officer_saber": "Officer Saber",
-  "item.closequartercombat.machete": "Machete",
-  "item.closequartercombat.combat_knife": "Combat Knife",
-  "item.closequartercombat.trench_shovel": "Trench Shovel",
-  "item.closequartercombat.pickaxe_weapon": "Pickaxe",
-
   "item.closequartercombat.gas_mask": "Gas Mask",
-  "item.closequartercombat.gas_mask_s": "Gas Mask S",
-  "item.closequartercombat.gas_mask_x": "Gas Mask X",
-
-  "item.closequartercombat.trenchcoat_chest_s": "Trenchcoat S",
-  "item.closequartercombat.trenchcoat_legs_s": "Trenchcoat Pants S",
-  "item.closequartercombat.trenchcoat_chest_x": "Trenchcoat X",
-  "item.closequartercombat.trenchcoat_legs_x": "Trenchcoat Pants X",
-
-  "item.closequartercombat.lobster_helmet": "Warden Helmet",
-  "item.closequartercombat.lobster_chest": "Warden Armor",
 
   "item.closequartercombat.grenade": "Fragmentation grenade",
   "item.closequartercombat.demo_grenade": "High explosive grenade",

@@ -1,33 +1,17 @@
 {
-  "itemGroup.closequartercombat.cqc_tab": "Close Quarter Combat",
+  "itemGroup.closequartercombat.cqc_tab": "Simple Grenades",
   "block.closequartercombat.example_block": "Example Block",
   "item.closequartercombat.example_item": "Example Item",
 
-  "closequartercombat.configuration.title": "Close Quarter Combat Configs",
-  "closequartercombat.configuration.section.closequartercombat.common.toml": "Close Quarter Combat Configs",
-  "closequartercombat.configuration.section.closequartercombat.common.toml.title": "Close Quarter Combat Configs",
+  "closequartercombat.configuration.title": "Simple Grenades Configs",
+  "closequartercombat.configuration.section.closequartercombat.common.toml": "Simple Grenades Configs",
+  "closequartercombat.configuration.section.closequartercombat.common.toml.title": "Simple Grenades Configs",
   "closequartercombat.configuration.items": "Item List",
   "closequartercombat.configuration.logDirtBlock": "Log Dirt Block",
   "closequartercombat.configuration.magicNumberIntroduction": "Magic Number Text",
   "closequartercombat.configuration.magicNumber": "Magic Number",
 
-  "item.closequartercombat.officer_saber": "Офіцерська сабля",
-  "item.closequartercombat.machete": "Мачете",
-  "item.closequartercombat.combat_knife": "Бойовий ніж",
-  "item.closequartercombat.trench_shovel": "Окопна лопата",
-  "item.closequartercombat.pickaxe_weapon": "Кірка",
-
   "item.closequartercombat.gas_mask": "Протигаз",
-  "item.closequartercombat.gas_mask_s": "Протигаз S",
-  "item.closequartercombat.gas_mask_x": "Протигаз X",
-
-  "item.closequartercombat.trenchcoat_chest_s": "Плащ S",
-  "item.closequartercombat.trenchcoat_legs_s": "Штани плаща S",
-  "item.closequartercombat.trenchcoat_chest_x": "Плащ X",
-  "item.closequartercombat.trenchcoat_legs_x": "Штани плаща X",
-
-  "item.closequartercombat.lobster_helmet": "Шолом часового",
-  "item.closequartercombat.lobster_chest": "Броня часового",
 
   "item.closequartercombat.grenade": "Осколкова граната",
   "item.closequartercombat.demo_grenade": "Фугасна граната",
