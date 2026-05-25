@@ -159,7 +159,19 @@ public class GrenadeItem extends Item
             case HE ->
             {
                 // HE граната: урагу від осколків без ламання блоків
-                ThrownGrenadeEntity.damageAndSpawnShrapnel(level, player.getX(), player.getY() + 0.5D, player.getZ(), 6.0F, 70.0F, player);
+                double explosionY = player.getY() + 0.5D;
+                ThrownGrenadeEntity.damageAndSpawnShrapnel(level, player.getX(), explosionY, player.getZ(), ThrownGrenadeEntity.HE_EXPLOSION_RADIUS, ThrownGrenadeEntity.HE_SHRAPNEL_DAMAGE, player);
+                ThrownGrenadeEntity.spawnHeExplosionParticles(level, player.getX(), explosionY + 0.25D, player.getZ());
+                ThrownGrenadeEntity.spawnShrapnelSmokeBurst(level, player.getX(), explosionY + 0.25D, player.getZ(), ThrownGrenadeEntity.HE_EXPLOSION_RADIUS, level.getRandom());
+                level.levelEvent(2009,
+                        new net.minecraft.core.BlockPos((int) player.getX(), (int) explosionY, (int) player.getZ()),
+                        0);
+                level.playSound(
+                        null,
+                        player.getX(), explosionY, player.getZ(),
+                        SoundEvents.GENERIC_EXPLODE.value(), SoundSource.NEUTRAL,
+                        1.6F, 1.0F
+                );
             }
             case DEMO ->
             {
@@ -167,7 +179,7 @@ public class GrenadeItem extends Item
                 level.explode(
                         null,
                         player.getX(), player.getY() + 0.5D, player.getZ(),
-                        2.4F,
+                        ThrownGrenadeEntity.DEMO_EXPLOSION_RADIUS,
                         Level.ExplosionInteraction.TNT
                 );
             }
@@ -177,11 +189,11 @@ public class GrenadeItem extends Item
                 level.explode(
                         null,
                         player.getX(), player.getY() + 0.5D, player.getZ(),
-                        4.0F,
+                        ThrownGrenadeEntity.GIGA_EXPLOSION_RADIUS,
                         Level.ExplosionInteraction.TNT
                 );
                 // Також наносимо урагу від осколків
-                ThrownGrenadeEntity.damageAndSpawnShrapnel(level, player.getX(), player.getY() + 0.5D, player.getZ(), 4.0F, 70.0F, player);
+                ThrownGrenadeEntity.damageAndSpawnShrapnel(level, player.getX(), player.getY() + 0.5D, player.getZ(), ThrownGrenadeEntity.GIGA_EXPLOSION_RADIUS, 70.0F, player);
             }
             case GAS ->
             {

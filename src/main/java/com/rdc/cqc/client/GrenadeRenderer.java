@@ -30,6 +30,8 @@ public class GrenadeRenderer extends EntityRenderer<ThrownGrenadeEntity>
     private static final float BASE_SPIN_DEG_PER_TICK = 8.0F;
     /** Додатковий внесок швидкості (град/тік на одиницю швидкості). */
     private static final float SPIN_FROM_VELOCITY = 50.0F;
+    /** Giga важча, тому у польоті обертається повільніше. */
+    private static final float GIGA_SPIN_MULTIPLIER = 0.6F;
     /** Масштаб, з яким малюємо item-модель. */
     private static final float MODEL_SCALE = 0.85F;
 
@@ -63,23 +65,25 @@ public class GrenadeRenderer extends EntityRenderer<ThrownGrenadeEntity>
         // Логіка обертання:
         //  • Якщо граната лежить (resting) — миттєвий поворот на 90° по X для ефекту
         //    «граната на боку». Це стосується ВСІХ типів.
-        //  • Якщо в польоті — обертаємо ЛИШЕ Demolition Grenade (з ручкою), бо інші
-        //    типи мають симетричну круглу форму, для якої кручення непомітне/непотрібне.
-        boolean isDemo = entity.getGrenadeType() == ThrownGrenadeEntity.Type.DEMO;
+        //  • Якщо в польоті — обертаємо Demolition та Giga Grenade.
+        ThrownGrenadeEntity.Type grenadeType = entity.getGrenadeType();
+        boolean shouldSpin = grenadeType == ThrownGrenadeEntity.Type.DEMO
+                || grenadeType == ThrownGrenadeEntity.Type.GIGA;
 
         if (entity.isResting())
         {
             // Лежить — повернути на 90 градусів по X, та й все.
             poseStack.mulPose(Axis.XP.rotationDegrees(90.0F));
         }
-        else if (isDemo)
+        else if (shouldSpin)
         {
             Vec3 velocity = entity.getDeltaMovement();
             float speed = (float) velocity.length();
-            float spinPerTick = BASE_SPIN_DEG_PER_TICK + speed * SPIN_FROM_VELOCITY;
+            float spinMultiplier = grenadeType == ThrownGrenadeEntity.Type.GIGA ? GIGA_SPIN_MULTIPLIER : 1.0F;
+            float spinPerTick = (BASE_SPIN_DEG_PER_TICK + speed * SPIN_FROM_VELOCITY) * spinMultiplier;
             float spinAngle = (entity.tickCount + partialTick) * spinPerTick;
 
-            // Обертаємо ЛИШЕ навколо осі X у view-space (горизонтальна вісь камери).
+            // Обертаємо навколо осі X у view-space (горизонтальна вісь камери).
             // Створює ефект «гранати, що перевертається через ноги».
             poseStack.mulPose(Axis.XP.rotationDegrees(spinAngle));
         }

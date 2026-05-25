@@ -2,10 +2,14 @@ package com.rdc.cqc.entity;
 
 import com.rdc.cqc.item.CQCItems;
 import java.util.List;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.RandomSource;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.damagesource.DamageSource;
@@ -40,6 +44,14 @@ import net.minecraft.world.phys.Vec3;
  */
 public class ThrownGrenadeEntity extends ThrowableItemProjectile
 {
+    private static final SoundEvent GRENADE_BOUNCE_SOUND = SoundEvent.createVariableRangeEvent(
+            ResourceLocation.withDefaultNamespace("block.bone_block.break")
+    );
+
+    /** Giga важча, тому летить помітно ближче за інші гранати. */
+    private static final float DEFAULT_THROW_VELOCITY = 0.7F;
+    private static final float GIGA_THROW_VELOCITY = 0.45F;
+
     /** Тип гранати (порядковий номер у {@link Type}). Синхронізується з клієнтом для рендера. */
     private static final EntityDataAccessor<Integer> DATA_TYPE =
             SynchedEntityData.defineId(ThrownGrenadeEntity.class, EntityDataSerializers.INT);
@@ -51,14 +63,17 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     /** Залишок фьюзу в тіках. Не синхронізується (логіка лише на сервері). */
     private int fuse = 60;
 
-    /** Радіус вибуху для HE/демо гранат (TNT = 4.0F). */
-    private static final float HE_EXPLOSION_RADIUS = 6.0F;
+    /** Радіус ураження для HE гранати. */
+    public static final float HE_EXPLOSION_RADIUS = 7.5F;
+
+    /** Максимальна шкода від осколків HE гранати в центрі вибуху. */
+    public static final float HE_SHRAPNEL_DAMAGE = 90.0F;
 
     /** Радіус вибуху для DEMO гранати (меньший за TNT). */
-    private static final float DEMO_EXPLOSION_RADIUS = 2.4F;
+    public static final float DEMO_EXPLOSION_RADIUS = 2.2F;
 
-    /** Радіус вибуху для GIGA гранати (як TNT). */
-    private static final float GIGA_EXPLOSION_RADIUS = 4.0F;
+    /** Радіус вибуху для GIGA гранати (трохи сильніший за TNT). */
+    public static final float GIGA_EXPLOSION_RADIUS = 4.5F;
 
     /** Радіус газової хмари (стартовий). */
     private static final float GAS_CLOUD_RADIUS = 7.0F;
@@ -158,9 +173,8 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         // Лічильник + вибух + перерахунок resting-стану — лише на сервері.
         if (!this.level().isClientSide())
         {
-            // Граната вважається «лежить», коли і onGround, і швидкість дуже маленька.
-            // Це сигналізує клієнту, що крутити її більше не треба.
-            boolean resting = this.onGround() && this.getDeltaMovement().lengthSqr() < 0.0025D;
+            // Після приземлення стан лишається true, щоб дрібне ковзання не запускало spin знову.
+            boolean resting = this.entityData.get(DATA_RESTING) || this.onGround();
             if (resting != this.entityData.get(DATA_RESTING))
             {
                 this.entityData.set(DATA_RESTING, resting);
@@ -219,12 +233,19 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
 
         this.setDeltaMovement(reflected);
 
+        if (!this.level().isClientSide()
+                && result.getDirection() == net.minecraft.core.Direction.UP
+                && reflected.y == 0.0D)
+        {
+            this.entityData.set(DATA_RESTING, Boolean.TRUE);
+        }
+
         // Маленький звук удару (тільки коли є помітна швидкість).
         if (velocity.lengthSqr() > 0.05D && !this.level().isClientSide())
         {
             this.level().playSound(
                     null, this.getX(), this.getY(), this.getZ(),
-                    SoundEvents.WOOL_PLACE, SoundSource.NEUTRAL,
+                    GRENADE_BOUNCE_SOUND, SoundSource.NEUTRAL,
                     0.4F, 1.0F + (this.random.nextFloat() - 0.5F) * 0.2F
             );
         }
@@ -279,7 +300,9 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             case HE ->
             {
                 // HE граната: шкода від осколків без ламання блоків
-                spawnShrapnelAndDamage(HE_EXPLOSION_RADIUS, 70.0F);
+                spawnShrapnelAndDamage(HE_EXPLOSION_RADIUS, HE_SHRAPNEL_DAMAGE);
+                spawnHeExplosionParticles(this.level(), this.getX(), this.getY() + 0.25D, this.getZ());
+                spawnShrapnelSmokeBurst(this.level(), this.getX(), this.getY() + 0.25D, this.getZ(), HE_EXPLOSION_RADIUS, this.random);
 
                 // 🔥 КЛЮЧ: Синхронізуємо частинки на клієнти через levelEvent
                 // Код 2009 = EXPLOSION_LARGE_SMOKE (як TNT) — автоматично синхронізується
@@ -290,13 +313,13 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                 this.level().playSound(
                         null,
                         this.getX(), this.getY(), this.getZ(),
-                        SoundEvents.FIREWORK_ROCKET_BLAST, SoundSource.NEUTRAL,
-                        1.0F, 1.2F
+                        SoundEvents.GENERIC_EXPLODE.value(), SoundSource.NEUTRAL,
+                        1.6F, 1.0F
                 );
             }
             case DEMO ->
             {
-                // Демо граната: повний вибух з ламанням блоків (мала сила - в 5 разів менше)
+                // Демо граната: повний вибух з ламанням блоків, але слабше за TNT.
                 this.level().explode(
                         null,
                         this.getX(), this.getY(), this.getZ(),
@@ -306,7 +329,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             }
             case GIGA ->
             {
-                // Гіга граната: потужний вибух з ламанням блоків (сила динаміту)
+                // Гіга граната: потужний вибух з ламанням блоків, трохи сильніше за TNT.
                 this.level().explode(
                         null,
                         this.getX(), this.getY(), this.getZ(),
@@ -352,6 +375,61 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     private void spawnShrapnelAndDamage(float radius, float damage)
     {
         damageAndSpawnShrapnel(this.level(), this.getX(), this.getY(), this.getZ(), radius, damage, (LivingEntity) this.getOwner());
+    }
+
+    /** Додає ванільний TNT-like спалах вибухових частинок для HE без ламання блоків. */
+    public static void spawnHeExplosionParticles(Level level, double x, double y, double z)
+    {
+        if (!(level instanceof ServerLevel serverLevel))
+        {
+            return;
+        }
+
+        serverLevel.sendParticles(ParticleTypes.EXPLOSION_EMITTER, x, y, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+        serverLevel.sendParticles(ParticleTypes.EXPLOSION, x, y, z, 8, 0.9D, 0.45D, 0.9D, 0.02D);
+    }
+
+    /**
+     * Короткі димові "штрихи" від центру вибуху назовні, щоб HE виглядала як осколкова.
+     */
+    public static void spawnShrapnelSmokeBurst(Level level, double x, double y, double z,
+                                               float radius, RandomSource random)
+    {
+        if (!(level instanceof ServerLevel serverLevel))
+        {
+            return;
+        }
+
+        int rays = 34;
+        int pointsPerRay = 4;
+
+        for (int i = 0; i < rays; i++)
+        {
+            double yaw = random.nextDouble() * Math.PI * 2.0D;
+            double yDirection = random.nextDouble() * 2.0D - 1.0D;
+            double horizontal = Math.sqrt(Math.max(0.0D, 1.0D - yDirection * yDirection));
+            Vec3 direction = new Vec3(
+                    Math.cos(yaw) * horizontal,
+                    yDirection,
+                    Math.sin(yaw) * horizontal
+            ).normalize();
+
+            double length = radius * (0.35D + random.nextDouble() * 0.35D);
+            for (int point = 1; point <= pointsPerRay; point++)
+            {
+                double progress = point / (double) pointsPerRay;
+                Vec3 position = new Vec3(x, y, z).add(direction.scale(length * progress));
+                Vec3 velocity = direction.scale(0.10D + progress * 0.08D);
+
+                serverLevel.sendParticles(
+                        ParticleTypes.SMOKE,
+                        position.x, position.y, position.z,
+                        0,
+                        velocity.x, velocity.y, velocity.z,
+                        0.8D
+                );
+            }
+        }
     }
 
     /**
@@ -657,8 +735,8 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     {
         ThrownGrenadeEntity grenade = new ThrownGrenadeEntity(level, thrower, type);
         grenade.setItem(stack.copyWithCount(1));
-        // Швидкість метання ще трохи зменшено (0.85 → 0.7) для м'якшого кидка.
-        grenade.shootFromRotation(thrower, thrower.getXRot(), thrower.getYRot(), -20.0F, 0.7F, 1.0F);
+        float velocity = type == Type.GIGA ? GIGA_THROW_VELOCITY : DEFAULT_THROW_VELOCITY;
+        grenade.shootFromRotation(thrower, thrower.getXRot(), thrower.getYRot(), -20.0F, velocity, 1.0F);
         level.addFreshEntity(grenade);
         return grenade;
     }
