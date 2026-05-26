@@ -30,7 +30,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.BaseFireBlock;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -131,6 +131,10 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     private static final int MOLOTOV_FIRE_RADIUS = 2;
     private static final int INCENDIARY_FRAGMENT_COUNT = 5;
     private static final double INCENDIARY_FRAGMENT_SPREAD_RADIUS = 5.0D;
+    private static final int CLUSTER_SUBMUNITION_COUNT = 5;
+    private static final double CLUSTER_SUBMUNITION_SPREAD_RADIUS = 5.0D;
+    private static final float CLUSTER_SUBMUNITION_SHRAPNEL_RADIUS = 15.0F;
+    private static final float CLUSTER_SUBMUNITION_SHRAPNEL_DAMAGE = 28.0F;
 
     /** Радіус вибуху для GIGA гранати (трохи сильніший за TNT). */
     public static final float GIGA_EXPLOSION_RADIUS = 4.5F;
@@ -219,7 +223,10 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                 && getGrenadeType() != Type.SHAPED_CHARGE_GRENADE
                 && getGrenadeType() != Type.MAGNETIC_GRENADE
                 && getGrenadeType() != Type.REMOTE_DYNAMITE_BUNDLE
+                && getGrenadeType() != Type.MOLOTOV
+                && getGrenadeType() != Type.CLUSTER_GRENADE
                 && getGrenadeType() != Type.INCENDIARY_FRAGMENT
+                && getGrenadeType() != Type.CLUSTER_SUBMUNITION
                 && !isSmokeEmitting()
                 && !isGasEmitting();
     }
@@ -400,6 +407,24 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                 return;
             }
 
+            if (getGrenadeType() == Type.CLUSTER_SUBMUNITION)
+            {
+                this.level().addParticle(
+                        ParticleTypes.SMOKE,
+                        this.getX(), this.getY() + 0.05D, this.getZ(),
+                        0.0D, 0.01D, 0.0D
+                );
+                if (this.tickCount % 2 == 0)
+                {
+                    this.level().addParticle(
+                            ParticleTypes.CRIT,
+                            this.getX(), this.getY() + 0.05D, this.getZ(),
+                            0.0D, 0.01D, 0.0D
+                    );
+                }
+                return;
+            }
+
             // Невеликий «димок» з гранати, щоб видно було, що вона активна.
             if (this.tickCount % 2 == 0)
             {
@@ -423,6 +448,11 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             return;
         }
 
+        if (tryClusterSubmunitionExplode(result.getLocation()))
+        {
+            return;
+        }
+
         if (tryImpactDetonate())
         {
             return;
@@ -438,7 +468,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             return;
         }
 
-        if (tryMolotovIgnite(result.getLocation()))
+        if (tryMolotovIgnite(result))
         {
             return;
         }
@@ -498,6 +528,11 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     protected void onHitEntity(EntityHitResult result)
     {
         if (tryIncendiaryFragmentIgnite(result.getLocation()))
+        {
+            return;
+        }
+
+        if (tryClusterSubmunitionExplode(result.getLocation()))
         {
             return;
         }
@@ -620,6 +655,55 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         return true;
     }
 
+    private boolean tryMolotovIgnite(BlockHitResult result)
+    {
+        if (getGrenadeType() != Type.MOLOTOV)
+        {
+            return false;
+        }
+
+        if (!this.level().isClientSide() && !this.isRemoved())
+        {
+            igniteMolotovImpact(result);
+            playMolotovIgniteSounds(result.getLocation());
+            this.discard();
+        }
+
+        return true;
+    }
+
+    private void igniteMolotovImpact(BlockHitResult result)
+    {
+        BlockPos hitBlock = result.getBlockPos();
+        Direction face = result.getDirection();
+        BlockPos surfaceFirePos = hitBlock.relative(face);
+        tryPlaceFire(surfaceFirePos);
+
+        if (face.getAxis().isHorizontal())
+        {
+            tryPlaceFire(surfaceFirePos.below());
+            tryPlaceFire(surfaceFirePos.above());
+        }
+
+        spreadMolotovFire(Vec3.atCenterOf(surfaceFirePos));
+    }
+
+    private void playMolotovIgniteSounds(Vec3 position)
+    {
+        this.level().playSound(
+                null,
+                position.x, position.y, position.z,
+                SoundEvents.GLASS_BREAK, SoundSource.NEUTRAL,
+                1.0F, 0.9F + this.random.nextFloat() * 0.2F
+        );
+        this.level().playSound(
+                null,
+                position.x, position.y, position.z,
+                SoundEvents.FIRECHARGE_USE, SoundSource.NEUTRAL,
+                0.9F, 0.9F + this.random.nextFloat() * 0.3F
+        );
+    }
+
     private boolean tryIncendiaryFragmentIgnite(Vec3 impactPosition)
     {
         if (getGrenadeType() != Type.INCENDIARY_FRAGMENT)
@@ -634,6 +718,44 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         }
 
         return true;
+    }
+
+    private boolean tryClusterSubmunitionExplode(Vec3 impactPosition)
+    {
+        if (getGrenadeType() != Type.CLUSTER_SUBMUNITION)
+        {
+            return false;
+        }
+
+        if (!this.level().isClientSide() && !this.isRemoved())
+        {
+            detonateClusterSubmunition(impactPosition);
+            this.discard();
+        }
+
+        return true;
+    }
+
+    private void detonateClusterSubmunition(Vec3 impactPosition)
+    {
+        damageAndSpawnShrapnel(
+                this.level(),
+                impactPosition.x,
+                impactPosition.y,
+                impactPosition.z,
+                CLUSTER_SUBMUNITION_SHRAPNEL_RADIUS,
+                CLUSTER_SUBMUNITION_SHRAPNEL_DAMAGE,
+                this.getOwner() instanceof LivingEntity living ? living : null
+        );
+        spawnFragExplosionParticles(this.level(), impactPosition.x, impactPosition.y + 0.15D, impactPosition.z);
+        spawnShrapnelSmokeBurst(this.level(), impactPosition.x, impactPosition.y + 0.15D, impactPosition.z, CLUSTER_SUBMUNITION_SHRAPNEL_RADIUS, this.random);
+        this.level().playSound(
+                null,
+                impactPosition.x, impactPosition.y, impactPosition.z,
+                SoundEvents.GENERIC_EXPLODE.value(), SoundSource.NEUTRAL,
+                0.9F,
+                1.15F + this.random.nextFloat() * 0.2F
+        );
     }
 
     private void igniteIncendiaryFragment(Vec3 impactPosition)
@@ -681,7 +803,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                 if (this.level().isEmptyBlock(firePos)
                         && this.level().getBlockState(below).isFaceSturdy(this.level(), below, Direction.UP))
                 {
-                    this.level().setBlock(firePos, Blocks.FIRE.defaultBlockState(), 11);
+                    tryPlaceFire(firePos);
                     placed++;
                     break;
                 }
@@ -701,10 +823,21 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             if (this.level().isEmptyBlock(firePos)
                     && this.level().getBlockState(below).isFaceSturdy(this.level(), below, Direction.UP))
             {
-                this.level().setBlock(firePos, Blocks.FIRE.defaultBlockState(), 11);
+                tryPlaceFire(firePos);
                 return;
             }
         }
+    }
+
+    private boolean tryPlaceFire(BlockPos firePos)
+    {
+        if (!this.level().isEmptyBlock(firePos))
+        {
+            return false;
+        }
+
+        this.level().setBlock(firePos, BaseFireBlock.getState(this.level(), firePos), 11);
+        return true;
     }
 
     private void detonateIncendiaryGrenade()
@@ -715,9 +848,14 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
 
         for (int i = 0; i < INCENDIARY_FRAGMENT_COUNT; i++)
         {
-            double angle = (Math.PI * 2.0D * i / INCENDIARY_FRAGMENT_COUNT) + this.random.nextDouble() * 0.55D;
-            double speed = (INCENDIARY_FRAGMENT_SPREAD_RADIUS / 17.0D) + this.random.nextDouble() * 0.05D;
-            Vec3 velocity = new Vec3(Math.cos(angle) * speed, 0.34D + this.random.nextDouble() * 0.08D, Math.sin(angle) * speed);
+            double angle = this.random.nextDouble() * Math.PI * 2.0D;
+            double distanceBias = Math.sqrt(this.random.nextDouble());
+            double speed = 0.16D + distanceBias * (INCENDIARY_FRAGMENT_SPREAD_RADIUS / 14.0D);
+            Vec3 velocity = new Vec3(
+                    Math.cos(angle) * speed,
+                    0.22D + this.random.nextDouble() * 0.32D,
+                    Math.sin(angle) * speed
+            );
 
             ThrownGrenadeEntity fragment = this.getOwner() instanceof LivingEntity living
                     ? new ThrownGrenadeEntity(this.level(), living, Type.INCENDIARY_FRAGMENT)
@@ -735,6 +873,41 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                 this.getX(), this.getY(), this.getZ(),
                 SoundEvents.FIRECHARGE_USE, SoundSource.NEUTRAL,
                 1.1F, 0.9F + this.random.nextFloat() * 0.25F
+        );
+    }
+
+    private void detonateClusterGrenade()
+    {
+        Vec3 origin = this.position();
+        spawnFragExplosionParticles(this.level(), origin.x, origin.y + 0.25D, origin.z);
+
+        for (int i = 0; i < CLUSTER_SUBMUNITION_COUNT; i++)
+        {
+            double angle = this.random.nextDouble() * Math.PI * 2.0D;
+            double distanceBias = Math.sqrt(this.random.nextDouble());
+            double speed = 0.18D + distanceBias * (CLUSTER_SUBMUNITION_SPREAD_RADIUS / 13.0D);
+            Vec3 velocity = new Vec3(
+                    Math.cos(angle) * speed,
+                    0.24D + this.random.nextDouble() * 0.34D,
+                    Math.sin(angle) * speed
+            );
+
+            ThrownGrenadeEntity submunition = this.getOwner() instanceof LivingEntity living
+                    ? new ThrownGrenadeEntity(this.level(), living, Type.CLUSTER_SUBMUNITION)
+                    : new ThrownGrenadeEntity(CQCEntities.THROWN_GRENADE.get(), this.level());
+            submunition.setGrenadeType(Type.CLUSTER_SUBMUNITION);
+            submunition.setPos(origin.x, origin.y + 0.2D, origin.z);
+            submunition.setDeltaMovement(velocity);
+            submunition.setFuse(80);
+            submunition.setNoGravity(false);
+            this.level().addFreshEntity(submunition);
+        }
+
+        this.level().playSound(
+                null,
+                this.getX(), this.getY(), this.getZ(),
+                SoundEvents.FIREWORK_ROCKET_BLAST, SoundSource.NEUTRAL,
+                0.9F, 1.0F + this.random.nextFloat() * 0.2F
         );
     }
 
@@ -1094,9 +1267,17 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             {
                 detonateIncendiaryGrenade();
             }
+            case CLUSTER_GRENADE ->
+            {
+                detonateClusterGrenade();
+            }
             case INCENDIARY_FRAGMENT ->
             {
                 igniteIncendiaryFragment(this.position());
+            }
+            case CLUSTER_SUBMUNITION ->
+            {
+                detonateClusterSubmunition(this.position());
             }
             case STICKY_GRENADE ->
             {
@@ -1580,7 +1761,9 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         MOLOTOV,                 // молотов
         INCENDIARY_GRENADE,      // запалювальна граната
         INCENDIARY_FRAGMENT,     // внутрішній запалювальний уламок
-        SAPPER_BAG;              // саперна сумка
+        SAPPER_BAG,              // саперна сумка
+        CLUSTER_GRENADE,         // кластерна граната
+        CLUSTER_SUBMUNITION;     // внутрішній кластерний суббоєприпас
 
         public Item getItem()
         {
@@ -1599,6 +1782,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                 case MAGNETIC_GRENADE -> CQCItems.MAGNETIC_GRENADE.get();
                 case MOLOTOV -> CQCItems.MOLOTOV.get();
                 case INCENDIARY_GRENADE, INCENDIARY_FRAGMENT -> CQCItems.INCENDIARY_GRENADE.get();
+                case CLUSTER_GRENADE, CLUSTER_SUBMUNITION -> CQCItems.CLUSTER_GRENADE.get();
                 case STICKY_GRENADE -> CQCItems.STICKY_GRENADE.get();
                 case GAS -> CQCItems.GAS_GRENADE.get();
                 case SMOKE -> CQCItems.SMOKE_GRENADE.get();

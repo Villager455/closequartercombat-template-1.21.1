@@ -41,6 +41,8 @@
   "item.closequartercombat.molotov.tooltip": "Breaks on impact and sets the surface on fire.",
   "item.closequartercombat.incendiary_grenade": "Incendiary Grenade",
   "item.closequartercombat.incendiary_grenade.tooltip": "After 5 seconds, scatters incendiary fragments that set surfaces on fire.",
+  "item.closequartercombat.cluster_grenade": "Cluster Grenade",
+  "item.closequartercombat.cluster_grenade.tooltip": "After 2 seconds, scatters submunitions that detonate as weaker fragmentation charges.",
   "item.closequartercombat.impact_grenade": "Impact Grenade",
   "item.closequartercombat.impact_grenade.tooltip": "Explodes immediately on first impact.",
   "item.closequartercombat.heat_grenade": "HEAT Grenade",

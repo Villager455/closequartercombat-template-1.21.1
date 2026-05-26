@@ -41,6 +41,8 @@
   "item.closequartercombat.molotov.tooltip": "Розбивається при ударі та підпалює поверхню.",
   "item.closequartercombat.incendiary_grenade": "Запалювальна граната",
   "item.closequartercombat.incendiary_grenade.tooltip": "Через 5 секунд розкидає запалювальні уламки, що підпалюють поверхні.",
+  "item.closequartercombat.cluster_grenade": "Кластерна граната",
+  "item.closequartercombat.cluster_grenade.tooltip": "Через 2 секунди розкидає суббоєприпаси, що вибухають слабкими осколковими зарядами.",
   "item.closequartercombat.impact_grenade": "Ударна граната",
   "item.closequartercombat.impact_grenade.tooltip": "Вибухає одразу при першому зіткненні.",
   "item.closequartercombat.heat_grenade": "Кумулятивна граната",

@@ -101,7 +101,7 @@ public class CQCItems
     public static final DeferredItem<Item> SMALL_GRENADE = ITEMS.register(
             "small_grenade",
             () -> new GrenadeItem(
-                    new Item.Properties().stacksTo(1),
+                    new Item.Properties().stacksTo(3),
                     ThrownGrenadeEntity.Type.SMALL_GRENADE
             )
     );
@@ -109,7 +109,7 @@ public class CQCItems
     public static final DeferredItem<Item> DYNAMITE_STICK = ITEMS.register(
             "dynamite_stick",
             () -> new GrenadeItem(
-                    new Item.Properties().stacksTo(1),
+                    new Item.Properties().stacksTo(9),
                     ThrownGrenadeEntity.Type.DYNAMITE_STICK
             )
     );
@@ -125,7 +125,7 @@ public class CQCItems
     public static final DeferredItem<Item> IMPROVISED_GRENADE = ITEMS.register(
             "improvised_grenade",
             () -> new GrenadeItem(
-                    new Item.Properties().stacksTo(1),
+                    new Item.Properties().stacksTo(3),
                     ThrownGrenadeEntity.Type.IMPROVISED_GRENADE
             )
     );
@@ -143,6 +143,14 @@ public class CQCItems
             () -> new GrenadeItem(
                     new Item.Properties().stacksTo(1),
                     ThrownGrenadeEntity.Type.INCENDIARY_GRENADE
+            )
+    );
+
+    public static final DeferredItem<Item> CLUSTER_GRENADE = ITEMS.register(
+            "cluster_grenade",
+            () -> new GrenadeItem(
+                    new Item.Properties().stacksTo(1),
+                    ThrownGrenadeEntity.Type.CLUSTER_GRENADE
             )
     );
 

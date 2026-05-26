@@ -44,16 +44,6 @@ public class CloseQuarterCombat
 
                     .displayItems((parameters, output) ->
                     {
-                        // Протигаз
-                        output.accept(CQCItems.GAS_MASK.get());
-
-                        // Інгредієнти
-                        output.accept(CQCItems.FUSE.get());
-                        output.accept(CQCItems.CONTACT_DETONATOR.get());
-                        output.accept(CQCItems.REMOTE_DETONATOR.get());
-                        output.accept(CQCItems.EXPLOSIVE_GRENADE_PART.get());
-                        output.accept(CQCItems.HEAT_GRENADE_PART.get());
-
                         // Гранати
                         output.accept(CQCItems.FRAG_GRENADE.get());
                         output.accept(CQCItems.AIRBURST_FRAG_GRENADE.get());
@@ -65,6 +55,7 @@ public class CloseQuarterCombat
                         output.accept(CQCItems.IMPROVISED_GRENADE.get());
                         output.accept(CQCItems.MOLOTOV.get());
                         output.accept(CQCItems.INCENDIARY_GRENADE.get());
+                        output.accept(CQCItems.CLUSTER_GRENADE.get());
                         output.accept(CQCItems.IMPACT_GRENADE.get());
                         output.accept(CQCItems.SHAPED_CHARGE_GRENADE.get());
                         output.accept(CQCItems.MAGNETIC_GRENADE.get());
@@ -72,6 +63,16 @@ public class CloseQuarterCombat
                         output.accept(CQCItems.GIGA_GRENADE.get());
                         output.accept(CQCItems.GAS_GRENADE.get());
                         output.accept(CQCItems.SMOKE_GRENADE.get());
+
+                        // Протигаз
+                        output.accept(CQCItems.GAS_MASK.get());
+
+                        // Інгредієнти
+                        output.accept(CQCItems.FUSE.get());
+                        output.accept(CQCItems.CONTACT_DETONATOR.get());
+                        output.accept(CQCItems.REMOTE_DETONATOR.get());
+                        output.accept(CQCItems.EXPLOSIVE_GRENADE_PART.get());
+                        output.accept(CQCItems.HEAT_GRENADE_PART.get());
                     })
 
                     .build());

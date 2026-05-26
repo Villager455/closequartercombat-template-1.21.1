@@ -54,7 +54,8 @@ public class GrenadeRenderer extends EntityRenderer<ThrownGrenadeEntity>
     {
         if (entity.isSmokeEmitting()
                 || entity.isGasEmitting()
-                || entity.getGrenadeType() == ThrownGrenadeEntity.Type.INCENDIARY_FRAGMENT)
+                || entity.getGrenadeType() == ThrownGrenadeEntity.Type.INCENDIARY_FRAGMENT
+                || entity.getGrenadeType() == ThrownGrenadeEntity.Type.CLUSTER_SUBMUNITION)
         {
             return;
         }
@@ -99,9 +100,8 @@ public class GrenadeRenderer extends EntityRenderer<ThrownGrenadeEntity>
             if (shouldSpin && speed > 0.01F)
             {
                 float yaw = (float) Math.toDegrees(Math.atan2(velocity.x, velocity.z));
-                float pitch = (float) -Math.toDegrees(Math.atan2(velocity.y, velocity.horizontalDistance()));
                 poseStack.mulPose(Axis.YP.rotationDegrees(yaw));
-                poseStack.mulPose(Axis.XP.rotationDegrees(pitch));
+                poseStack.mulPose(Axis.XP.rotationDegrees(25.0F));
             }
             else
             {

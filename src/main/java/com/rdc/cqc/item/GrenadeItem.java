@@ -41,9 +41,11 @@ public class GrenadeItem extends Item
     /** Стартовий фьюз від моменту висмикування чеки. */
     public static final int DEFAULT_FUSE_TICKS = 100;
     private static final int SMALL_GRENADE_FUSE_TICKS = 60;
+    private static final int CLUSTER_GRENADE_FUSE_TICKS = 20;
     private static final int SAPPER_BAG_FUSE_TICKS = 300;
     private static final int REMOTE_DYNAMITE_BUNDLE_SELF_DESTRUCT_TICKS = 6000;
     private static final int IMPROVISED_MIN_FUSE_TICKS = 10;
+    private static final int IMPROVISED_QUICK_MAX_FUSE_TICKS = 20;
     private static final int IMPROVISED_MAX_FUSE_TICKS = 200;
 
     private final ThrownGrenadeEntity.Type type;
@@ -91,12 +93,11 @@ public class GrenadeItem extends Item
         if (this.type == ThrownGrenadeEntity.Type.IMPACT_GRENADE
                 || this.type == ThrownGrenadeEntity.Type.SHAPED_CHARGE_GRENADE
                 || this.type == ThrownGrenadeEntity.Type.MAGNETIC_GRENADE
-                || this.type == ThrownGrenadeEntity.Type.REMOTE_DYNAMITE_BUNDLE)
-        {
-            return;
-        }
-
-        if (this.type == ThrownGrenadeEntity.Type.DYNAMITE_STICK && !hasFlintAndSteelInHand(player))
+                || this.type == ThrownGrenadeEntity.Type.REMOTE_DYNAMITE_BUNDLE
+                || this.type == ThrownGrenadeEntity.Type.DYNAMITE_STICK
+                || this.type == ThrownGrenadeEntity.Type.SMALL_GRENADE
+                || this.type == ThrownGrenadeEntity.Type.IMPROVISED_GRENADE
+                || this.type == ThrownGrenadeEntity.Type.CLUSTER_GRENADE)
         {
             return;
         }
@@ -362,6 +363,11 @@ public class GrenadeItem extends Item
             return SMALL_GRENADE_FUSE_TICKS;
         }
 
+        if (this.type == ThrownGrenadeEntity.Type.CLUSTER_GRENADE)
+        {
+            return CLUSTER_GRENADE_FUSE_TICKS;
+        }
+
         if (this.type == ThrownGrenadeEntity.Type.SAPPER_BAG)
         {
             return SAPPER_BAG_FUSE_TICKS;
@@ -375,6 +381,12 @@ public class GrenadeItem extends Item
         if (this.type != ThrownGrenadeEntity.Type.IMPROVISED_GRENADE)
         {
             return DEFAULT_FUSE_TICKS;
+        }
+
+        if (level.getRandom().nextFloat() < 0.3F)
+        {
+            return IMPROVISED_MIN_FUSE_TICKS
+                    + level.getRandom().nextInt(IMPROVISED_QUICK_MAX_FUSE_TICKS - IMPROVISED_MIN_FUSE_TICKS + 1);
         }
 
         double centered = level.getRandom().nextBoolean()
