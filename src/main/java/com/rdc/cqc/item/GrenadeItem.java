@@ -14,6 +14,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 
@@ -39,6 +40,9 @@ public class GrenadeItem extends Item
 {
     /** Стартовий фьюз від моменту висмикування чеки. */
     public static final int DEFAULT_FUSE_TICKS = 100;
+    private static final int SMALL_GRENADE_FUSE_TICKS = 60;
+    private static final int SAPPER_BAG_FUSE_TICKS = 300;
+    private static final int REMOTE_DYNAMITE_BUNDLE_SELF_DESTRUCT_TICKS = 6000;
     private static final int IMPROVISED_MIN_FUSE_TICKS = 10;
     private static final int IMPROVISED_MAX_FUSE_TICKS = 200;
 
@@ -86,7 +90,13 @@ public class GrenadeItem extends Item
     {
         if (this.type == ThrownGrenadeEntity.Type.IMPACT_GRENADE
                 || this.type == ThrownGrenadeEntity.Type.SHAPED_CHARGE_GRENADE
-                || this.type == ThrownGrenadeEntity.Type.MAGNETIC_GRENADE)
+                || this.type == ThrownGrenadeEntity.Type.MAGNETIC_GRENADE
+                || this.type == ThrownGrenadeEntity.Type.REMOTE_DYNAMITE_BUNDLE)
+        {
+            return;
+        }
+
+        if (this.type == ThrownGrenadeEntity.Type.DYNAMITE_STICK && !hasFlintAndSteelInHand(player))
         {
             return;
         }
@@ -116,6 +126,11 @@ public class GrenadeItem extends Item
     {
         ItemStack stack = player.getItemInHand(hand);
 
+        if (this.type == ThrownGrenadeEntity.Type.DYNAMITE_STICK && !hasFlintAndSteelInHand(player))
+        {
+            return InteractionResultHolder.fail(stack);
+        }
+
         // Звук «кидка» (короткий «вух» сніжка).
         level.playSound(
                 null,
@@ -131,6 +146,15 @@ public class GrenadeItem extends Item
 
             ThrownGrenadeEntity grenade = ThrownGrenadeEntity.throwGrenade(level, player, this.type, stack);
             grenade.setFuse(fuse);
+
+            if (this.type == ThrownGrenadeEntity.Type.REMOTE_DYNAMITE_BUNDLE)
+            {
+                ItemStack detonator = CQCItems.ACTIVE_DETONATOR.get().getDefaultInstance();
+                detonator.set(CQCDataComponents.REMOTE_GRENADE_ENTITY_ID.get(), grenade.getId());
+                player.setItemInHand(hand, detonator);
+                player.awardStat(Stats.ITEM_USED.get(this));
+                return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
+            }
         }
 
         player.awardStat(Stats.ITEM_USED.get(this));
@@ -220,12 +244,30 @@ public class GrenadeItem extends Item
                         Level.ExplosionInteraction.TNT
                 );
             }
+            case SAPPER_BAG ->
+            {
+                level.explode(
+                        null,
+                        player.getX(), player.getY() + 0.5D, player.getZ(),
+                        ThrownGrenadeEntity.SAPPER_BAG_EXPLOSION_RADIUS,
+                        Level.ExplosionInteraction.TNT
+                );
+            }
             case SMALL_GRENADE ->
             {
                 level.explode(
                         null,
                         player.getX(), player.getY() + 0.5D, player.getZ(),
                         ThrownGrenadeEntity.SMALL_GRENADE_EXPLOSION_RADIUS,
+                        Level.ExplosionInteraction.TNT
+                );
+            }
+            case DYNAMITE_STICK ->
+            {
+                level.explode(
+                        null,
+                        player.getX(), player.getY() + 0.5D, player.getZ(),
+                        ThrownGrenadeEntity.DYNAMITE_STICK_EXPLOSION_RADIUS,
                         Level.ExplosionInteraction.TNT
                 );
             }
@@ -274,6 +316,15 @@ public class GrenadeItem extends Item
                         Level.ExplosionInteraction.TNT
                 );
             }
+            case REMOTE_DYNAMITE_BUNDLE ->
+            {
+                level.explode(
+                        null,
+                        player.getX(), player.getY() + 0.5D, player.getZ(),
+                        ThrownGrenadeEntity.HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
+                        Level.ExplosionInteraction.TNT
+                );
+            }
             case GIGA ->
             {
                 // Гіга граната: потужний вибух з ламанням блоків
@@ -306,6 +357,21 @@ public class GrenadeItem extends Item
 
     private int getStartingFuse(Level level)
     {
+        if (this.type == ThrownGrenadeEntity.Type.SMALL_GRENADE)
+        {
+            return SMALL_GRENADE_FUSE_TICKS;
+        }
+
+        if (this.type == ThrownGrenadeEntity.Type.SAPPER_BAG)
+        {
+            return SAPPER_BAG_FUSE_TICKS;
+        }
+
+        if (this.type == ThrownGrenadeEntity.Type.REMOTE_DYNAMITE_BUNDLE)
+        {
+            return REMOTE_DYNAMITE_BUNDLE_SELF_DESTRUCT_TICKS;
+        }
+
         if (this.type != ThrownGrenadeEntity.Type.IMPROVISED_GRENADE)
         {
             return DEFAULT_FUSE_TICKS;
@@ -316,5 +382,11 @@ public class GrenadeItem extends Item
                 : 1.0D - Math.pow(level.getRandom().nextDouble(), 2.0D);
         int range = IMPROVISED_MAX_FUSE_TICKS - IMPROVISED_MIN_FUSE_TICKS;
         return IMPROVISED_MIN_FUSE_TICKS + Mth.clamp((int) Math.round(centered * range), 0, range);
+    }
+
+    private static boolean hasFlintAndSteelInHand(Player player)
+    {
+        return player.getMainHandItem().is(Items.FLINT_AND_STEEL)
+                || player.getOffhandItem().is(Items.FLINT_AND_STEEL);
     }
 }

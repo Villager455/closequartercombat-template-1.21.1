@@ -103,8 +103,14 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     /** Радіус вибуху для High Explosive Grenade (менший за TNT). */
     public static final float HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS = 2.2F;
 
+    /** Саперна сумка — сила вибуху TNT * 8. */
+    public static final float SAPPER_BAG_EXPLOSION_RADIUS = 4.0F * 8.0F;
+
     /** Радіус вибуху для маленької гранати — половина фугасної. */
     public static final float SMALL_GRENADE_EXPLOSION_RADIUS = HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS * 0.5F;
+
+    /** Динамітова шашка — приблизно 1/9 сили ванільного TNT. */
+    public static final float DYNAMITE_STICK_EXPLOSION_RADIUS = 4.0F / 9.0F;
 
     /** Радіус вибуху для Impact Grenade — приблизно 66% від фугасної. */
     public static final float IMPACT_GRENADE_EXPLOSION_RADIUS = HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS * 0.66F;
@@ -212,6 +218,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         return getGrenadeType() != Type.IMPACT_GRENADE
                 && getGrenadeType() != Type.SHAPED_CHARGE_GRENADE
                 && getGrenadeType() != Type.MAGNETIC_GRENADE
+                && getGrenadeType() != Type.REMOTE_DYNAMITE_BUNDLE
                 && getGrenadeType() != Type.INCENDIARY_FRAGMENT
                 && !isSmokeEmitting()
                 && !isGasEmitting();
@@ -332,6 +339,21 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                 }
 
                 updateStickyAttachment();
+            }
+            else if (getGrenadeType() == Type.REMOTE_DYNAMITE_BUNDLE)
+            {
+                if (this.stickyStuck)
+                {
+                    updateStickyAttachment();
+                }
+
+                this.fuse--;
+                if (this.fuse <= 0 && !this.isRemoved())
+                {
+                    detonate();
+                    this.discard();
+                }
+                return;
             }
             else if (getGrenadeType() == Type.MAGNETIC_GRENADE && !this.stickyStuck)
             {
@@ -817,7 +839,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
 
     private boolean tryStickToBlock(BlockHitResult result)
     {
-        if (getGrenadeType() != Type.STICKY_GRENADE)
+        if (getGrenadeType() != Type.STICKY_GRENADE && getGrenadeType() != Type.REMOTE_DYNAMITE_BUNDLE)
         {
             return false;
         }
@@ -825,7 +847,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         if (!this.level().isClientSide() && !this.stickyStuck)
         {
             Vec3 normal = Vec3.atLowerCornerOf(result.getDirection().getNormal()).scale(0.08D);
-            stickAt(result.getLocation().add(normal), 100);
+            stickAt(result.getLocation().add(normal), getGrenadeType() == Type.REMOTE_DYNAMITE_BUNDLE ? this.fuse : 100);
         }
 
         return true;
@@ -854,7 +876,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
 
     private boolean tryStickToEntity(EntityHitResult result)
     {
-        if (getGrenadeType() != Type.STICKY_GRENADE)
+        if (getGrenadeType() != Type.STICKY_GRENADE && getGrenadeType() != Type.REMOTE_DYNAMITE_BUNDLE)
         {
             return false;
         }
@@ -864,7 +886,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             Entity target = result.getEntity();
             this.stickyTargetId = target.getId();
             this.stickyEntityOffset = result.getLocation().subtract(target.position());
-            stickAt(result.getLocation(), 100);
+            stickAt(result.getLocation(), getGrenadeType() == Type.REMOTE_DYNAMITE_BUNDLE ? this.fuse : 100);
         }
 
         return true;
@@ -911,6 +933,17 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
 
         Vec3 attachedPosition = target.position().add(this.stickyEntityOffset);
         this.setPos(attachedPosition.x, attachedPosition.y, attachedPosition.z);
+    }
+
+    public void triggerRemoteDetonation()
+    {
+        if (this.level().isClientSide() || this.isRemoved() || getGrenadeType() != Type.REMOTE_DYNAMITE_BUNDLE)
+        {
+            return;
+        }
+
+        detonate();
+        this.discard();
     }
 
     /**
@@ -985,12 +1018,30 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                         Level.ExplosionInteraction.TNT
                 );
             }
+            case SAPPER_BAG ->
+            {
+                this.level().explode(
+                        null,
+                        this.getX(), this.getY(), this.getZ(),
+                        SAPPER_BAG_EXPLOSION_RADIUS,
+                        Level.ExplosionInteraction.TNT
+                );
+            }
             case SMALL_GRENADE ->
             {
                 this.level().explode(
                         null,
                         this.getX(), this.getY(), this.getZ(),
                         SMALL_GRENADE_EXPLOSION_RADIUS,
+                        Level.ExplosionInteraction.TNT
+                );
+            }
+            case DYNAMITE_STICK ->
+            {
+                this.level().explode(
+                        null,
+                        this.getX(), this.getY(), this.getZ(),
+                        DYNAMITE_STICK_EXPLOSION_RADIUS,
                         Level.ExplosionInteraction.TNT
                 );
             }
@@ -1048,6 +1099,15 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                 igniteIncendiaryFragment(this.position());
             }
             case STICKY_GRENADE ->
+            {
+                this.level().explode(
+                        null,
+                        this.getX(), this.getY(), this.getZ(),
+                        HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
+                        Level.ExplosionInteraction.TNT
+                );
+            }
+            case REMOTE_DYNAMITE_BUNDLE ->
             {
                 this.level().explode(
                         null,
@@ -1513,11 +1573,14 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         SHAPED_CHARGE_GRENADE,   // кумулятивна граната
         MAGNETIC_GRENADE,        // магнітна граната
         SMALL_GRENADE,           // маленька граната
+        DYNAMITE_STICK,          // динамітова шашка
+        REMOTE_DYNAMITE_BUNDLE,  // динамітна зв'язка з детонатором
         IMPROVISED_GRENADE,      // саморобна граната
         AIRBURST_FRAG_GRENADE,   // підстрибуюча осколкова граната
         MOLOTOV,                 // молотов
         INCENDIARY_GRENADE,      // запалювальна граната
-        INCENDIARY_FRAGMENT;     // внутрішній запалювальний уламок
+        INCENDIARY_FRAGMENT,     // внутрішній запалювальний уламок
+        SAPPER_BAG;              // саперна сумка
 
         public Item getItem()
         {
@@ -1526,7 +1589,10 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                 case FRAG_GRENADE -> CQCItems.FRAG_GRENADE.get();
                 case AIRBURST_FRAG_GRENADE -> CQCItems.AIRBURST_FRAG_GRENADE.get();
                 case HIGH_EXPLOSIVE_GRENADE -> CQCItems.HIGH_EXPLOSIVE_GRENADE.get();
+                case SAPPER_BAG -> CQCItems.SAPPER_BAG.get();
                 case SMALL_GRENADE -> CQCItems.SMALL_GRENADE.get();
+                case DYNAMITE_STICK -> CQCItems.DYNAMITE_STICK.get();
+                case REMOTE_DYNAMITE_BUNDLE -> CQCItems.REMOTE_DYNAMITE_BUNDLE.get();
                 case IMPROVISED_GRENADE -> CQCItems.IMPROVISED_GRENADE.get();
                 case IMPACT_GRENADE -> CQCItems.IMPACT_GRENADE.get();
                 case SHAPED_CHARGE_GRENADE -> CQCItems.SHAPED_CHARGE_GRENADE.get();

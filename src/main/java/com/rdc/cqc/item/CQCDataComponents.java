@@ -31,4 +31,12 @@ public class CQCDataComponents
                             .persistent(Codec.INT)
                             .networkSynchronized(ByteBufCodecs.VAR_INT)
             );
+
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Integer>> REMOTE_GRENADE_ENTITY_ID =
+            COMPONENTS.registerComponentType(
+                    "remote_grenade_entity_id",
+                    builder -> builder
+                            .persistent(Codec.INT)
+                            .networkSynchronized(ByteBufCodecs.VAR_INT)
+            );
 }

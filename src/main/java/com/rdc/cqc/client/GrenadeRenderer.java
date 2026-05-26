@@ -96,7 +96,7 @@ public class GrenadeRenderer extends EntityRenderer<ThrownGrenadeEntity>
             Vec3 velocity = entity.getDeltaMovement();
             float speed = (float) velocity.length();
 
-            if (speed > 0.01F)
+            if (shouldSpin && speed > 0.01F)
             {
                 float yaw = (float) Math.toDegrees(Math.atan2(velocity.x, velocity.z));
                 float pitch = (float) -Math.toDegrees(Math.atan2(velocity.y, velocity.horizontalDistance()));
@@ -106,6 +106,7 @@ public class GrenadeRenderer extends EntityRenderer<ThrownGrenadeEntity>
             else
             {
                 poseStack.mulPose(Axis.YP.rotationDegrees(stableRestingYaw(entity)));
+                poseStack.mulPose(Axis.XP.rotationDegrees(25.0F));
             }
 
             if (shouldSpin)

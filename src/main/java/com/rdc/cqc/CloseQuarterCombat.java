@@ -50,6 +50,7 @@ public class CloseQuarterCombat
                         // Інгредієнти
                         output.accept(CQCItems.FUSE.get());
                         output.accept(CQCItems.CONTACT_DETONATOR.get());
+                        output.accept(CQCItems.REMOTE_DETONATOR.get());
                         output.accept(CQCItems.EXPLOSIVE_GRENADE_PART.get());
                         output.accept(CQCItems.HEAT_GRENADE_PART.get());
 
@@ -57,7 +58,10 @@ public class CloseQuarterCombat
                         output.accept(CQCItems.FRAG_GRENADE.get());
                         output.accept(CQCItems.AIRBURST_FRAG_GRENADE.get());
                         output.accept(CQCItems.HIGH_EXPLOSIVE_GRENADE.get());
+                        output.accept(CQCItems.SAPPER_BAG.get());
                         output.accept(CQCItems.SMALL_GRENADE.get());
+                        output.accept(CQCItems.DYNAMITE_STICK.get());
+                        output.accept(CQCItems.REMOTE_DYNAMITE_BUNDLE.get());
                         output.accept(CQCItems.IMPROVISED_GRENADE.get());
                         output.accept(CQCItems.MOLOTOV.get());
                         output.accept(CQCItems.INCENDIARY_GRENADE.get());

@@ -16,6 +16,8 @@
 
   "item.closequartercombat.fuse": "Запал",
   "item.closequartercombat.contact_detonator": "Контактний детонатор",
+  "item.closequartercombat.active_detonator": "Пристрій детонації",
+  "item.closequartercombat.remote_detonator": "Дистанційний детонатор",
   "item.closequartercombat.explosive_grenade_part": "Бойова частина гранати",
   "item.closequartercombat.heat_grenade_part": "Кумулятивна частина гранати",
 
@@ -25,8 +27,14 @@
   "item.closequartercombat.airburst_frag_grenade.tooltip": "Підстрибує перед вибухом і накриває уламками величезну зону.",
   "item.closequartercombat.high_explosive_grenade": "Фугасна граната",
   "item.closequartercombat.high_explosive_grenade.tooltip": "Створює вибух, що руйнує блоки.",
+  "item.closequartercombat.sapper_bag": "Саперна сумка",
+  "item.closequartercombat.sapper_bag.tooltip": "Надпотужний заряд з 15-секундним фьюзом і вибухом у 8 разів сильнішим за TNT.",
   "item.closequartercombat.small_grenade": "Маленька граната",
   "item.closequartercombat.small_grenade.tooltip": "Компактна фугасна граната зі слабшим вибухом.",
+  "item.closequartercombat.dynamite_stick": "Динамітова шашка",
+  "item.closequartercombat.dynamite_stick.tooltip": "Дуже слабкий вибух. Можна кинути тільки з огнивом в одній з рук.",
+  "item.closequartercombat.remote_dynamite_bundle": "Динамітна зв'язка з детонатором",
+  "item.closequartercombat.remote_dynamite_bundle.tooltip": "Прилипає до цілі, чекає команди детонатора і самоліквідується через 5 хвилин.",
   "item.closequartercombat.improvised_grenade": "Саморобна граната",
   "item.closequartercombat.improvised_grenade.tooltip": "Нестабільна граната з непередбачуваним таймером.",
   "item.closequartercombat.molotov": "Молотов",

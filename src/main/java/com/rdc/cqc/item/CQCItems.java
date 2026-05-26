@@ -40,6 +40,16 @@ public class CQCItems
             () -> new Item(new Item.Properties())
     );
 
+    public static final DeferredItem<Item> ACTIVE_DETONATOR = ITEMS.register(
+            "active_detonator",
+            () -> new ActiveDetonatorItem(new Item.Properties().stacksTo(1))
+    );
+
+    public static final DeferredItem<Item> REMOTE_DETONATOR = ITEMS.register(
+            "remote_detonator",
+            () -> new Item(new Item.Properties())
+    );
+
     public static final DeferredItem<Item> EXPLOSIVE_GRENADE_PART = ITEMS.register(
             "explosive_grenade_part",
             () -> new Item(new Item.Properties())
@@ -80,11 +90,35 @@ public class CQCItems
             )
     );
 
+    public static final DeferredItem<Item> SAPPER_BAG = ITEMS.register(
+            "sapper_bag",
+            () -> new GrenadeItem(
+                    new Item.Properties().stacksTo(1),
+                    ThrownGrenadeEntity.Type.SAPPER_BAG
+            )
+    );
+
     public static final DeferredItem<Item> SMALL_GRENADE = ITEMS.register(
             "small_grenade",
             () -> new GrenadeItem(
                     new Item.Properties().stacksTo(1),
                     ThrownGrenadeEntity.Type.SMALL_GRENADE
+            )
+    );
+
+    public static final DeferredItem<Item> DYNAMITE_STICK = ITEMS.register(
+            "dynamite_stick",
+            () -> new GrenadeItem(
+                    new Item.Properties().stacksTo(1),
+                    ThrownGrenadeEntity.Type.DYNAMITE_STICK
+            )
+    );
+
+    public static final DeferredItem<Item> REMOTE_DYNAMITE_BUNDLE = ITEMS.register(
+            "remote_dynamite_bundle",
+            () -> new GrenadeItem(
+                    new Item.Properties().stacksTo(1),
+                    ThrownGrenadeEntity.Type.REMOTE_DYNAMITE_BUNDLE
             )
     );
 

@@ -16,6 +16,8 @@
 
   "item.closequartercombat.fuse": "Fuse",
   "item.closequartercombat.contact_detonator": "Contact Detonator",
+  "item.closequartercombat.active_detonator": "Detonation Device",
+  "item.closequartercombat.remote_detonator": "Remote Detonator",
   "item.closequartercombat.explosive_grenade_part": "Grenade Warhead",
   "item.closequartercombat.heat_grenade_part": "Shaped Charge Grenade Part",
 
@@ -25,8 +27,14 @@
   "item.closequartercombat.airburst_frag_grenade.tooltip": "Jumps before exploding and throws shrapnel across an enormous area.",
   "item.closequartercombat.high_explosive_grenade": "High Explosive Grenade",
   "item.closequartercombat.high_explosive_grenade.tooltip": "Creates a block-breaking explosion.",
+  "item.closequartercombat.sapper_bag": "Sapper Bag",
+  "item.closequartercombat.sapper_bag.tooltip": "An extremely powerful charge with a 15-second fuse and a blast 8 times stronger than TNT.",
   "item.closequartercombat.small_grenade": "Small Grenade",
   "item.closequartercombat.small_grenade.tooltip": "A compact high explosive grenade with a weaker blast.",
+  "item.closequartercombat.dynamite_stick": "Dynamite Stick",
+  "item.closequartercombat.dynamite_stick.tooltip": "A very weak blast. Can only be thrown while holding flint and steel in either hand.",
+  "item.closequartercombat.remote_dynamite_bundle": "Dynamite Bundle with Detonator",
+  "item.closequartercombat.remote_dynamite_bundle.tooltip": "Sticks to a target, waits for the detonation device, and self-destructs after 5 minutes.",
   "item.closequartercombat.improvised_grenade": "Improvised Grenade",
   "item.closequartercombat.improvised_grenade.tooltip": "An unstable grenade with an unpredictable fuse.",
   "item.closequartercombat.molotov": "Molotov",
