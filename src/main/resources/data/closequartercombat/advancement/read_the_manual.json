@@ -1,0 +1,28 @@
+{
+  "parent": "closequartercombat:simple_grenades",
+  "display": {
+    "icon": {
+      "id": "closequartercombat:empty_launch_tube"
+    },
+    "title": {
+      "translate": "advancements.closequartercombat.read_the_manual.title"
+    },
+    "description": {
+      "translate": "advancements.closequartercombat.read_the_manual.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "read_the_manual": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "read_the_manual"
+    ]
+  ]
+}

@@ -185,6 +185,21 @@ public class CQCItems
             () -> new HeatLauncherItem(new Item.Properties().stacksTo(1), ThrownGrenadeEntity.Type.LARGE_HEAT_PROJECTILE)
     );
 
+    public static final DeferredItem<Item> HIGH_EXPLOSIVE_LAUNCHER = ITEMS.register(
+            "high_explosive_launcher",
+            () -> new HeatLauncherItem(new Item.Properties().stacksTo(1), ThrownGrenadeEntity.Type.HIGH_EXPLOSIVE_PROJECTILE)
+    );
+
+    public static final DeferredItem<Item> INCENDIARY_LAUNCHER = ITEMS.register(
+            "incendiary_launcher",
+            () -> new HeatLauncherItem(new Item.Properties().stacksTo(1), ThrownGrenadeEntity.Type.INCENDIARY_PROJECTILE)
+    );
+
+    public static final DeferredItem<Item> FRAG_LAUNCHER = ITEMS.register(
+            "frag_launcher",
+            () -> new HeatLauncherItem(new Item.Properties().stacksTo(1), ThrownGrenadeEntity.Type.FRAG_PROJECTILE)
+    );
+
     public static final DeferredItem<Item> EMPTY_LAUNCH_TUBE = ITEMS.register(
             "empty_launch_tube",
             () -> new Item(new Item.Properties().stacksTo(1))

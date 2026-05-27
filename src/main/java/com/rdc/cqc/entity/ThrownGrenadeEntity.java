@@ -96,6 +96,10 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     private static final EntityDataAccessor<Integer> DATA_MAGNETIC_ATTACHED_FACE =
             SynchedEntityData.defineId(ThrownGrenadeEntity.class, EntityDataSerializers.INT);
 
+    /** Чи снаряд гранатомета вилетів після заблокованого backblast. */
+    private static final EntityDataAccessor<Boolean> DATA_BAD_LAUNCH =
+            SynchedEntityData.defineId(ThrownGrenadeEntity.class, EntityDataSerializers.BOOLEAN);
+
     /** Залишок фьюзу в тіках. Не синхронізується (логіка лише на сервері). */
     private int fuse = 100;
     private int smokeEmitterAge = 0;
@@ -201,6 +205,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         builder.define(DATA_SMOKE_EMITTING, Boolean.FALSE);
         builder.define(DATA_GAS_EMITTING, Boolean.FALSE);
         builder.define(DATA_MAGNETIC_ATTACHED_FACE, -1);
+        builder.define(DATA_BAD_LAUNCH, Boolean.FALSE);
     }
 
     /** Чи граната зараз лежить (швидкість майже нуль). Використовується клієнтом для зупинки обертання. */
@@ -226,6 +231,11 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         return faceIndex >= 0 && faceIndex < directions.length ? directions[faceIndex] : null;
     }
 
+    public void setBadLaunch(boolean badLaunch)
+    {
+        this.entityData.set(DATA_BAD_LAUNCH, badLaunch);
+    }
+
     /** Виставляє залишок фьюзу (у тіках). Використовується для «винесення» залишку з активованої гранати-предмета. */
     public void setFuse(int fuse)
     {
@@ -239,6 +249,9 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                 && getGrenadeType() != Type.SHAPED_CHARGE_GRENADE
                 && getGrenadeType() != Type.HEAT_PROJECTILE
                 && getGrenadeType() != Type.LARGE_HEAT_PROJECTILE
+                && getGrenadeType() != Type.HIGH_EXPLOSIVE_PROJECTILE
+                && getGrenadeType() != Type.INCENDIARY_PROJECTILE
+                && getGrenadeType() != Type.FRAG_PROJECTILE
                 && getGrenadeType() != Type.MAGNETIC_GRENADE
                 && getGrenadeType() != Type.REMOTE_DYNAMITE_BUNDLE
                 && getGrenadeType() != Type.MOLOTOV
@@ -443,6 +456,29 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                 return;
             }
 
+            if (isLauncherProjectile(getGrenadeType()))
+            {
+                if (this.tickCount <= 7)
+                {
+                    boolean badLaunch = this.entityData.get(DATA_BAD_LAUNCH);
+                    Vec3 trailVelocity = this.getDeltaMovement().scale(badLaunch ? -0.08D : -0.16D);
+                    int particleCount = Math.max(1, 6 - this.tickCount);
+                    for (int i = 0; i < particleCount; i++)
+                    {
+                        this.level().addParticle(
+                                badLaunch ? ParticleTypes.CLOUD : ParticleTypes.CAMPFIRE_COSY_SMOKE,
+                                this.getX() + (this.random.nextDouble() - 0.5D) * 0.08D,
+                                this.getY() + 0.05D + (this.random.nextDouble() - 0.5D) * 0.08D,
+                                this.getZ() + (this.random.nextDouble() - 0.5D) * 0.08D,
+                                trailVelocity.x,
+                                trailVelocity.y + (badLaunch ? 0.01D : 0.04D),
+                                trailVelocity.z
+                        );
+                    }
+                }
+                return;
+            }
+
             // Невеликий «димок» з гранати, щоб видно було, що вона активна.
             if (this.tickCount % 2 == 0)
             {
@@ -467,6 +503,11 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         }
 
         if (tryClusterSubmunitionExplode(result.getLocation()))
+        {
+            return;
+        }
+
+        if (tryLauncherProjectileDetonate(result.getLocation()))
         {
             return;
         }
@@ -551,6 +592,11 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         }
 
         if (tryClusterSubmunitionExplode(result.getLocation()))
+        {
+            return;
+        }
+
+        if (tryLauncherProjectileDetonate(result.getLocation()))
         {
             return;
         }
@@ -1038,6 +1084,23 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         }
     }
 
+    private boolean tryLauncherProjectileDetonate(Vec3 impactPosition)
+    {
+        if (!isSimpleLauncherProjectile(getGrenadeType()))
+        {
+            return false;
+        }
+
+        if (!this.level().isClientSide() && !this.isRemoved())
+        {
+            this.setPos(impactPosition.x, impactPosition.y, impactPosition.z);
+            detonate();
+            this.discard();
+        }
+
+        return true;
+    }
+
     private void detonateShapedCharge(Vec3 impactPosition, Vec3 impactVelocity)
     {
         ServerPlayer owner = this.getOwner() instanceof ServerPlayer serverPlayer ? serverPlayer : null;
@@ -1099,6 +1162,20 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         return type == Type.SHAPED_CHARGE_GRENADE
                 || type == Type.HEAT_PROJECTILE
                 || type == Type.LARGE_HEAT_PROJECTILE;
+    }
+
+    private static boolean isSimpleLauncherProjectile(Type type)
+    {
+        return type == Type.HIGH_EXPLOSIVE_PROJECTILE
+                || type == Type.INCENDIARY_PROJECTILE
+                || type == Type.FRAG_PROJECTILE;
+    }
+
+    private static boolean isLauncherProjectile(Type type)
+    {
+        return type == Type.HEAT_PROJECTILE
+                || type == Type.LARGE_HEAT_PROJECTILE
+                || isSimpleLauncherProjectile(type);
     }
 
     private void awardAdvancementToOwner(String path)
@@ -1412,6 +1489,42 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                         this.position(),
                         direction,
                         HeatChargeEffects.LARGE_HEAT_PROJECTILE_EXPLOSION_RADIUS
+                );
+            }
+            case HIGH_EXPLOSIVE_PROJECTILE ->
+            {
+                this.level().explode(
+                        this,
+                        this.getX(), this.getY(), this.getZ(),
+                        GIGA_EXPLOSION_RADIUS,
+                        Level.ExplosionInteraction.TNT
+                );
+                spawnShrapnelAndDamage(GIGA_EXPLOSION_RADIUS, 70.0F);
+                this.level().levelEvent(2009,
+                        new net.minecraft.core.BlockPos((int)this.getX(), (int)this.getY(), (int)this.getZ()),
+                        0);
+            }
+            case INCENDIARY_PROJECTILE ->
+            {
+                detonateIncendiaryGrenade();
+            }
+            case FRAG_PROJECTILE ->
+            {
+                int kills = spawnShrapnelAndDamage(FRAG_GRENADE_EXPLOSION_RADIUS, FRAG_GRENADE_SHRAPNEL_DAMAGE);
+                if (kills >= 5)
+                {
+                    awardAdvancementToOwner("fire_in_the_hole");
+                }
+                spawnFragExplosionParticles(this.level(), this.getX(), this.getY() + 0.25D, this.getZ());
+                spawnShrapnelSmokeBurst(this.level(), this.getX(), this.getY() + 0.25D, this.getZ(), FRAG_GRENADE_EXPLOSION_RADIUS, this.random);
+                this.level().levelEvent(2009,
+                        new net.minecraft.core.BlockPos((int)this.getX(), (int)this.getY(), (int)this.getZ()),
+                        0);
+                this.level().playSound(
+                        null,
+                        this.getX(), this.getY(), this.getZ(),
+                        SoundEvents.GENERIC_EXPLODE.value(), SoundSource.NEUTRAL,
+                        1.6F, 1.0F
                 );
             }
             case MAGNETIC_GRENADE ->
@@ -1957,7 +2070,10 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         CLUSTER_SUBMUNITION,     // внутрішній кластерний суббоєприпас
         GIGA_GIGA,               // гіга гіга граната
         HEAT_PROJECTILE,         // снаряд гранатомета з кумулятивним зарядом
-        LARGE_HEAT_PROJECTILE;   // снаряд гранатомета з великим кумулятивним зарядом
+        LARGE_HEAT_PROJECTILE,   // снаряд гранатомета з великим кумулятивним зарядом
+        HIGH_EXPLOSIVE_PROJECTILE, // снаряд фугасного гранатомета
+        INCENDIARY_PROJECTILE,   // снаряд запалювального гранатомета
+        FRAG_PROJECTILE;         // снаряд осколкового гранатомета
 
         public Item getItem()
         {
@@ -1975,13 +2091,14 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                 case SHAPED_CHARGE_GRENADE, HEAT_PROJECTILE, LARGE_HEAT_PROJECTILE -> CQCItems.SHAPED_CHARGE_GRENADE.get();
                 case MAGNETIC_GRENADE -> CQCItems.MAGNETIC_GRENADE.get();
                 case MOLOTOV -> CQCItems.MOLOTOV.get();
-                case INCENDIARY_GRENADE, INCENDIARY_FRAGMENT -> CQCItems.INCENDIARY_GRENADE.get();
+                case INCENDIARY_GRENADE, INCENDIARY_FRAGMENT, INCENDIARY_PROJECTILE -> CQCItems.INCENDIARY_GRENADE.get();
                 case CLUSTER_GRENADE, CLUSTER_SUBMUNITION -> CQCItems.CLUSTER_GRENADE.get();
                 case STICKY_GRENADE -> CQCItems.STICKY_GRENADE.get();
                 case GAS -> CQCItems.GAS_GRENADE.get();
                 case SMOKE -> CQCItems.SMOKE_GRENADE.get();
-                case GIGA -> CQCItems.GIGA_GRENADE.get();
+                case GIGA, HIGH_EXPLOSIVE_PROJECTILE -> CQCItems.GIGA_GRENADE.get();
                 case GIGA_GIGA -> CQCItems.GIGA_GIGA_GRENADE.get();
+                case FRAG_PROJECTILE -> CQCItems.FRAG_GRENADE.get();
             };
         }
     }
