@@ -130,8 +130,8 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     /** Радіус вибуху для Impact Grenade — приблизно 66% від фугасної. */
     public static final float IMPACT_GRENADE_EXPLOSION_RADIUS = HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS * 0.66F;
 
-    /** Радіус вибуху для кумулятивної гранати — 20% від фугасної. */
-    public static final float HEAT_GRENADE_EXPLOSION_RADIUS = HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS * 0.2F;
+    /** Радіус вибуху для кумулятивного заряду — половина фугасної гранати. */
+    public static final float HEAT_GRENADE_EXPLOSION_RADIUS = HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS * 0.5F;
 
     /** Шкода при прямому влучанні контактних гранат у моба/гравця. */
     private static final float IMPACT_GRENADE_DIRECT_HIT_DAMAGE = 30.0F;
@@ -1010,11 +1010,32 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
 
         if (!this.level().isClientSide() && !this.isRemoved())
         {
-            detonateShapedCharge(impactPosition, impactVelocity);
+            detonateHeatImpact(impactPosition, impactVelocity);
             this.discard();
         }
 
         return true;
+    }
+
+    private void detonateHeatImpact(Vec3 impactPosition, Vec3 impactVelocity)
+    {
+        Vec3 direction = impactVelocity.lengthSqr() > 1.0E-4D
+                ? impactVelocity
+                : this.getLookAngle();
+        if (getGrenadeType() == Type.LARGE_HEAT_PROJECTILE)
+        {
+            HeatChargeEffects.detonateDoubleBlast(
+                    this.level(),
+                    this,
+                    impactPosition,
+                    direction,
+                    HeatChargeEffects.LARGE_HEAT_PROJECTILE_EXPLOSION_RADIUS
+            );
+        }
+        else
+        {
+            detonateShapedCharge(impactPosition, direction);
+        }
     }
 
     private void detonateShapedCharge(Vec3 impactPosition, Vec3 impactVelocity)

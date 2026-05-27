@@ -10,7 +10,7 @@ public final class HeatChargeEffects
 {
     private static final double JET_LENGTH = 3.0D;
     private static final double EXPLOSION_DISTANCE = 4.0D;
-    public static final float LARGE_HEAT_PROJECTILE_EXPLOSION_RADIUS = ThrownGrenadeEntity.GIGA_EXPLOSION_RADIUS;
+    public static final float LARGE_HEAT_PROJECTILE_EXPLOSION_RADIUS = ThrownGrenadeEntity.HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS;
 
     private HeatChargeEffects()
     {

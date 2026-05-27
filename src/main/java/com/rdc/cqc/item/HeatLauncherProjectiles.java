@@ -8,8 +8,8 @@ import net.minecraft.world.entity.player.Player;
 
 public final class HeatLauncherProjectiles
 {
-    private static final float PROJECTILE_VELOCITY = 1.5F;
-    private static final float PROJECTILE_INACCURACY = 9.0F;
+    private static final float PROJECTILE_VELOCITY = 3.0F;
+    private static final float PROJECTILE_INACCURACY = 2.0F;
 
     private HeatLauncherProjectiles()
     {

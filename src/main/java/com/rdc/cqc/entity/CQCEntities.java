@@ -22,7 +22,7 @@ public class CQCEntities
                     .<ThrownGrenadeEntity>of(ThrownGrenadeEntity::new, MobCategory.MISC)
                     .sized(0.35F, 0.35F)
                     .clientTrackingRange(6)
-                    .updateInterval(5)
+                    .updateInterval(3)
                     .build(ResourceLocation
                             .fromNamespaceAndPath(CloseQuarterCombat.MODID, "thrown_grenade")
                             .toString()));
