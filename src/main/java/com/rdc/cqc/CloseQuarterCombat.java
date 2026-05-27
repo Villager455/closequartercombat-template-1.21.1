@@ -61,6 +61,7 @@ public class CloseQuarterCombat
                         output.accept(CQCItems.MAGNETIC_GRENADE.get());
                         output.accept(CQCItems.STICKY_GRENADE.get());
                         output.accept(CQCItems.GIGA_GRENADE.get());
+                        output.accept(CQCItems.GIGA_GIGA_GRENADE.get());
                         output.accept(CQCItems.GAS_GRENADE.get());
                         output.accept(CQCItems.SMOKE_GRENADE.get());
 
@@ -92,6 +93,7 @@ public class CloseQuarterCombat
 
         NeoForge.EVENT_BUS.addListener(CQCEvents::onMobEffectApplicable);
         NeoForge.EVENT_BUS.addListener(CQCEvents::onLivingEquipmentChange);
+        NeoForge.EVENT_BUS.addListener(CQCEvents::onLivingDeath);
         NeoForge.EVENT_BUS.addListener(CQCEvents::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(CQCEvents::onRightClickItem);
 

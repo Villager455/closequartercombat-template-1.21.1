@@ -77,7 +77,8 @@ public class GrenadeRenderer extends EntityRenderer<ThrownGrenadeEntity>
                 || grenadeType == ThrownGrenadeEntity.Type.IMPROVISED_GRENADE
                 || grenadeType == ThrownGrenadeEntity.Type.STICKY_GRENADE
                 || grenadeType == ThrownGrenadeEntity.Type.SHAPED_CHARGE_GRENADE
-                || grenadeType == ThrownGrenadeEntity.Type.GIGA;
+                || grenadeType == ThrownGrenadeEntity.Type.GIGA
+                || grenadeType == ThrownGrenadeEntity.Type.GIGA_GIGA;
 
         if (entity.isResting())
         {
@@ -111,7 +112,9 @@ public class GrenadeRenderer extends EntityRenderer<ThrownGrenadeEntity>
 
             if (shouldSpin)
             {
-                float spinMultiplier = grenadeType == ThrownGrenadeEntity.Type.GIGA ? GIGA_SPIN_MULTIPLIER : 1.0F;
+                float spinMultiplier = (grenadeType == ThrownGrenadeEntity.Type.GIGA || grenadeType == ThrownGrenadeEntity.Type.GIGA_GIGA)
+                        ? GIGA_SPIN_MULTIPLIER
+                        : 1.0F;
                 float spinPerTick = (BASE_SPIN_DEG_PER_TICK + speed * SPIN_FROM_VELOCITY) * spinMultiplier;
                 float spinAngle = (entity.tickCount + partialTick) * spinPerTick;
 

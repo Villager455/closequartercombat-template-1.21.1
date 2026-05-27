@@ -1,0 +1,28 @@
+{
+  "parent": "closequartercombat:simple_grenades",
+  "display": {
+    "icon": {
+      "id": "closequartercombat:high_explosive_grenade"
+    },
+    "title": {
+      "translate": "advancements.closequartercombat.explosive_power.title"
+    },
+    "description": {
+      "translate": "advancements.closequartercombat.explosive_power.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "explosive_power": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "explosive_power"
+    ]
+  ]
+}

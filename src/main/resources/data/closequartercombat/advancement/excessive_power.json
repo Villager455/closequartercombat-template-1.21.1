@@ -1,0 +1,28 @@
+{
+  "parent": "closequartercombat:explosive_power",
+  "display": {
+    "icon": {
+      "id": "closequartercombat:giga_grenade"
+    },
+    "title": {
+      "translate": "advancements.closequartercombat.excessive_power.title"
+    },
+    "description": {
+      "translate": "advancements.closequartercombat.excessive_power.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "excessive_power": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "excessive_power"
+    ]
+  ]
+}

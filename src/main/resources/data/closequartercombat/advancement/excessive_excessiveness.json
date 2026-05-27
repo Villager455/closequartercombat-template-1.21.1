@@ -1,0 +1,28 @@
+{
+  "parent": "closequartercombat:excessive_power",
+  "display": {
+    "icon": {
+      "id": "closequartercombat:giga_giga_grenade"
+    },
+    "title": {
+      "translate": "advancements.closequartercombat.excessive_excessiveness.title"
+    },
+    "description": {
+      "translate": "advancements.closequartercombat.excessive_excessiveness.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "excessive_excessiveness": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "excessive_excessiveness"
+    ]
+  ]
+}

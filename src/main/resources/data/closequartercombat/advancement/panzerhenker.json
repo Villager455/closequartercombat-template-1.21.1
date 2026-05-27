@@ -1,0 +1,106 @@
+{
+  "parent": "closequartercombat:winter_war",
+  "display": {
+    "icon": {
+      "id": "closequartercombat:heat_grenade"
+    },
+    "title": {
+      "translate": "advancements.closequartercombat.panzerhenker.title"
+    },
+    "description": {
+      "translate": "advancements.closequartercombat.panzerhenker.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "criteria": {
+    "panzerhenker_1": {
+      "trigger": "minecraft:impossible"
+    },
+    "panzerhenker_2": {
+      "trigger": "minecraft:impossible"
+    },
+    "panzerhenker_3": {
+      "trigger": "minecraft:impossible"
+    },
+    "panzerhenker_4": {
+      "trigger": "minecraft:impossible"
+    },
+    "panzerhenker_5": {
+      "trigger": "minecraft:impossible"
+    },
+    "panzerhenker_6": {
+      "trigger": "minecraft:impossible"
+    },
+    "panzerhenker_7": {
+      "trigger": "minecraft:impossible"
+    },
+    "panzerhenker_8": {
+      "trigger": "minecraft:impossible"
+    },
+    "panzerhenker_9": {
+      "trigger": "minecraft:impossible"
+    },
+    "panzerhenker_10": {
+      "trigger": "minecraft:impossible"
+    },
+    "panzerhenker_11": {
+      "trigger": "minecraft:impossible"
+    },
+    "panzerhenker_12": {
+      "trigger": "minecraft:impossible"
+    },
+    "panzerhenker_13": {
+      "trigger": "minecraft:impossible"
+    },
+    "panzerhenker_14": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "panzerhenker_1"
+    ],
+    [
+      "panzerhenker_2"
+    ],
+    [
+      "panzerhenker_3"
+    ],
+    [
+      "panzerhenker_4"
+    ],
+    [
+      "panzerhenker_5"
+    ],
+    [
+      "panzerhenker_6"
+    ],
+    [
+      "panzerhenker_7"
+    ],
+    [
+      "panzerhenker_8"
+    ],
+    [
+      "panzerhenker_9"
+    ],
+    [
+      "panzerhenker_10"
+    ],
+    [
+      "panzerhenker_11"
+    ],
+    [
+      "panzerhenker_12"
+    ],
+    [
+      "panzerhenker_13"
+    ],
+    [
+      "panzerhenker_14"
+    ]
+  ]
+}

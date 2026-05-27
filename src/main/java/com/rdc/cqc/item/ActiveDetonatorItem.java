@@ -13,6 +13,8 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 
+import java.util.UUID;
+
 public class ActiveDetonatorItem extends Item
 {
     public ActiveDetonatorItem(Properties properties)
@@ -27,11 +29,25 @@ public class ActiveDetonatorItem extends Item
 
         if (!level.isClientSide())
         {
-            Integer entityId = stack.get(CQCDataComponents.REMOTE_GRENADE_ENTITY_ID.get());
-            if (entityId != null && level instanceof ServerLevel serverLevel)
+            String grenadeUuid = stack.get(CQCDataComponents.REMOTE_GRENADE_UUID.get());
+            if (grenadeUuid != null && level instanceof ServerLevel serverLevel)
             {
-                Entity entity = serverLevel.getEntity(entityId);
-                if (entity instanceof ThrownGrenadeEntity grenade)
+                try
+                {
+                    Entity entity = serverLevel.getEntity(UUID.fromString(grenadeUuid));
+                    if (entity instanceof ThrownGrenadeEntity grenade)
+                    {
+                        grenade.triggerRemoteDetonation();
+                    }
+                }
+                catch (IllegalArgumentException ignored)
+                {
+                }
+            }
+            else if (level instanceof ServerLevel serverLevel)
+            {
+                Integer entityId = stack.get(CQCDataComponents.REMOTE_GRENADE_ENTITY_ID.get());
+                if (entityId != null && serverLevel.getEntity(entityId) instanceof ThrownGrenadeEntity grenade)
                 {
                     grenade.triggerRemoteDetonation();
                 }

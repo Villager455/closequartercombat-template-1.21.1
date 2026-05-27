@@ -1,0 +1,28 @@
+{
+  "parent": "closequartercombat:simple_grenades",
+  "display": {
+    "icon": {
+      "id": "closequartercombat:improvised_grenade"
+    },
+    "title": {
+      "translate": "advancements.closequartercombat.price_of_saving.title"
+    },
+    "description": {
+      "translate": "advancements.closequartercombat.price_of_saving.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "price_of_saving": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "price_of_saving"
+    ]
+  ]
+}

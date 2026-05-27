@@ -1,0 +1,28 @@
+{
+  "parent": "closequartercombat:simple_grenades",
+  "display": {
+    "icon": {
+      "id": "closequartercombat:frag_grenade"
+    },
+    "title": {
+      "translate": "advancements.closequartercombat.fire_in_the_hole.title"
+    },
+    "description": {
+      "translate": "advancements.closequartercombat.fire_in_the_hole.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "fire_in_the_hole": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "fire_in_the_hole"
+    ]
+  ]
+}

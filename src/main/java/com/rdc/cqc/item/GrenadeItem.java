@@ -1,6 +1,7 @@
 package com.rdc.cqc.item;
 
 import com.rdc.cqc.CloseQuarterCombat;
+import com.rdc.cqc.CQCEvents;
 import com.rdc.cqc.entity.ThrownGrenadeEntity;
 import net.minecraft.ChatFormatting;
 import net.minecraft.advancements.AdvancementHolder;
@@ -101,7 +102,8 @@ public class GrenadeItem extends Item
                 || this.type == ThrownGrenadeEntity.Type.DYNAMITE_STICK
                 || this.type == ThrownGrenadeEntity.Type.SMALL_GRENADE
                 || this.type == ThrownGrenadeEntity.Type.IMPROVISED_GRENADE
-                || this.type == ThrownGrenadeEntity.Type.CLUSTER_GRENADE)
+                || this.type == ThrownGrenadeEntity.Type.CLUSTER_GRENADE
+                || this.type == ThrownGrenadeEntity.Type.MOLOTOV)
         {
             return;
         }
@@ -152,10 +154,22 @@ public class GrenadeItem extends Item
             ThrownGrenadeEntity grenade = ThrownGrenadeEntity.throwGrenade(level, player, this.type, stack);
             grenade.setFuse(fuse);
 
+            if (player instanceof ServerPlayer serverPlayer)
+            {
+                if (this.type == ThrownGrenadeEntity.Type.DYNAMITE_STICK)
+                {
+                    awardAdvancement(serverPlayer, "kaboom_rico");
+                }
+                else if (this.type == ThrownGrenadeEntity.Type.INCENDIARY_GRENADE)
+                {
+                    CQCEvents.recordIncendiaryGrenadeUse(serverPlayer);
+                }
+            }
+
             if (this.type == ThrownGrenadeEntity.Type.REMOTE_DYNAMITE_BUNDLE)
             {
                 ItemStack detonator = CQCItems.ACTIVE_DETONATOR.get().getDefaultInstance();
-                detonator.set(CQCDataComponents.REMOTE_GRENADE_ENTITY_ID.get(), grenade.getId());
+                detonator.set(CQCDataComponents.REMOTE_GRENADE_UUID.get(), grenade.getUUID().toString());
                 player.setItemInHand(hand, detonator);
                 player.awardStat(Stats.ITEM_USED.get(this));
                 return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
@@ -177,6 +191,10 @@ public class GrenadeItem extends Item
     public void inventoryTick(ItemStack stack, Level level, Entity entity, int slotId, boolean isSelected)
     {
         if (level.isClientSide()) return;
+        if (entity instanceof ServerPlayer serverPlayer)
+        {
+            awardInventoryAdvancements(serverPlayer);
+        }
         if (!isPinPulled(stack)) return;
         if (!(entity instanceof Player player)) return;
 
@@ -189,6 +207,10 @@ public class GrenadeItem extends Item
             boolean wasAlive = player.isAlive();
             detonateInHand(level, player);
             awardProfessionalIfKilledByHandGrenade(player, wasAlive);
+            if (this.type == ThrownGrenadeEntity.Type.IMPROVISED_GRENADE)
+            {
+                awardAdvancementIfKilled(player, wasAlive, "price_of_saving");
+            }
             stack.shrink(1);
         }
         else
@@ -209,7 +231,11 @@ public class GrenadeItem extends Item
             {
                 // Frag Grenade: шкода від осколків без ламання блоків.
                 double explosionY = player.getY() + 0.5D;
-                ThrownGrenadeEntity.damageAndSpawnShrapnel(level, player.getX(), explosionY, player.getZ(), ThrownGrenadeEntity.FRAG_GRENADE_EXPLOSION_RADIUS, ThrownGrenadeEntity.FRAG_GRENADE_SHRAPNEL_DAMAGE, player);
+                int kills = ThrownGrenadeEntity.damageAndSpawnShrapnel(level, player.getX(), explosionY, player.getZ(), ThrownGrenadeEntity.FRAG_GRENADE_EXPLOSION_RADIUS, ThrownGrenadeEntity.FRAG_GRENADE_SHRAPNEL_DAMAGE, player);
+                if (kills >= 5 && player instanceof ServerPlayer serverPlayer)
+                {
+                    awardAdvancement(serverPlayer, "fire_in_the_hole");
+                }
                 ThrownGrenadeEntity.spawnFragExplosionParticles(level, player.getX(), explosionY + 0.25D, player.getZ());
                 ThrownGrenadeEntity.spawnShrapnelSmokeBurst(level, player.getX(), explosionY + 0.25D, player.getZ(), ThrownGrenadeEntity.FRAG_GRENADE_EXPLOSION_RADIUS, level.getRandom());
                 level.levelEvent(2009,
@@ -343,6 +369,16 @@ public class GrenadeItem extends Item
                 // Також наносимо урагу від осколків
                 ThrownGrenadeEntity.damageAndSpawnShrapnel(level, player.getX(), player.getY() + 0.5D, player.getZ(), ThrownGrenadeEntity.GIGA_EXPLOSION_RADIUS, 70.0F, player);
             }
+            case GIGA_GIGA ->
+            {
+                level.explode(
+                        player,
+                        player.getX(), player.getY() + 0.5D, player.getZ(),
+                        ThrownGrenadeEntity.GIGA_GIGA_EXPLOSION_RADIUS,
+                        Level.ExplosionInteraction.TNT
+                );
+                ThrownGrenadeEntity.damageAndSpawnShrapnel(level, player.getX(), player.getY() + 0.5D, player.getZ(), ThrownGrenadeEntity.GIGA_GIGA_EXPLOSION_RADIUS, 91.0F, player);
+            }
             case GAS ->
             {
                 // Створюємо тимчасову гранату-сутність, яка стане газовим емітером.
@@ -435,6 +471,25 @@ public class GrenadeItem extends Item
         if (advancement != null)
         {
             serverPlayer.getAdvancements().award(advancement, path);
+        }
+    }
+
+    private void awardInventoryAdvancements(ServerPlayer player)
+    {
+        if (this.type == ThrownGrenadeEntity.Type.HIGH_EXPLOSIVE_GRENADE)
+        {
+            awardAdvancement(player, "explosive_power");
+        }
+        else if (this.type == ThrownGrenadeEntity.Type.GIGA)
+        {
+            awardAdvancement(player, "explosive_power");
+            awardAdvancement(player, "excessive_power");
+        }
+        else if (this.type == ThrownGrenadeEntity.Type.GIGA_GIGA)
+        {
+            awardAdvancement(player, "explosive_power");
+            awardAdvancement(player, "excessive_power");
+            awardAdvancement(player, "excessive_excessiveness");
         }
     }
 }

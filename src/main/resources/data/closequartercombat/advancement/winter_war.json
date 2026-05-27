@@ -1,0 +1,28 @@
+{
+  "parent": "closequartercombat:chornobaivka",
+  "display": {
+    "icon": {
+      "id": "closequartercombat:molotov"
+    },
+    "title": {
+      "translate": "advancements.closequartercombat.winter_war.title"
+    },
+    "description": {
+      "translate": "advancements.closequartercombat.winter_war.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "criteria": {
+    "winter_war": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "winter_war"
+    ]
+  ]
+}

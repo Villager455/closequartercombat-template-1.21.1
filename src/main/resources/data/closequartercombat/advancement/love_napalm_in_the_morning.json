@@ -1,0 +1,82 @@
+{
+  "parent": "closequartercombat:simple_grenades",
+  "display": {
+    "icon": {
+      "id": "closequartercombat:incendiary_grenade"
+    },
+    "title": {
+      "translate": "advancements.closequartercombat.love_napalm_in_the_morning.title"
+    },
+    "description": {
+      "translate": "advancements.closequartercombat.love_napalm_in_the_morning.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "love_napalm_in_the_morning_1": {
+      "trigger": "minecraft:impossible"
+    },
+    "love_napalm_in_the_morning_2": {
+      "trigger": "minecraft:impossible"
+    },
+    "love_napalm_in_the_morning_3": {
+      "trigger": "minecraft:impossible"
+    },
+    "love_napalm_in_the_morning_4": {
+      "trigger": "minecraft:impossible"
+    },
+    "love_napalm_in_the_morning_5": {
+      "trigger": "minecraft:impossible"
+    },
+    "love_napalm_in_the_morning_6": {
+      "trigger": "minecraft:impossible"
+    },
+    "love_napalm_in_the_morning_7": {
+      "trigger": "minecraft:impossible"
+    },
+    "love_napalm_in_the_morning_8": {
+      "trigger": "minecraft:impossible"
+    },
+    "love_napalm_in_the_morning_9": {
+      "trigger": "minecraft:impossible"
+    },
+    "love_napalm_in_the_morning_10": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "love_napalm_in_the_morning_1"
+    ],
+    [
+      "love_napalm_in_the_morning_2"
+    ],
+    [
+      "love_napalm_in_the_morning_3"
+    ],
+    [
+      "love_napalm_in_the_morning_4"
+    ],
+    [
+      "love_napalm_in_the_morning_5"
+    ],
+    [
+      "love_napalm_in_the_morning_6"
+    ],
+    [
+      "love_napalm_in_the_morning_7"
+    ],
+    [
+      "love_napalm_in_the_morning_8"
+    ],
+    [
+      "love_napalm_in_the_morning_9"
+    ],
+    [
+      "love_napalm_in_the_morning_10"
+    ]
+  ]
+}

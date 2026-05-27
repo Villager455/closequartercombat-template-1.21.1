@@ -1,0 +1,28 @@
+{
+  "parent": "closequartercombat:simple_grenades",
+  "display": {
+    "icon": {
+      "id": "closequartercombat:molotov"
+    },
+    "title": {
+      "translate": "advancements.closequartercombat.medium_rare.title"
+    },
+    "description": {
+      "translate": "advancements.closequartercombat.medium_rare.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "medium_rare": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "medium_rare"
+    ]
+  ]
+}

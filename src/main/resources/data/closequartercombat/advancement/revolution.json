@@ -1,0 +1,82 @@
+{
+  "parent": "closequartercombat:simple_grenades",
+  "display": {
+    "icon": {
+      "id": "closequartercombat:molotov"
+    },
+    "title": {
+      "translate": "advancements.closequartercombat.revolution.title"
+    },
+    "description": {
+      "translate": "advancements.closequartercombat.revolution.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "revolution_1": {
+      "trigger": "minecraft:impossible"
+    },
+    "revolution_2": {
+      "trigger": "minecraft:impossible"
+    },
+    "revolution_3": {
+      "trigger": "minecraft:impossible"
+    },
+    "revolution_4": {
+      "trigger": "minecraft:impossible"
+    },
+    "revolution_5": {
+      "trigger": "minecraft:impossible"
+    },
+    "revolution_6": {
+      "trigger": "minecraft:impossible"
+    },
+    "revolution_7": {
+      "trigger": "minecraft:impossible"
+    },
+    "revolution_8": {
+      "trigger": "minecraft:impossible"
+    },
+    "revolution_9": {
+      "trigger": "minecraft:impossible"
+    },
+    "revolution_10": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "revolution_1"
+    ],
+    [
+      "revolution_2"
+    ],
+    [
+      "revolution_3"
+    ],
+    [
+      "revolution_4"
+    ],
+    [
+      "revolution_5"
+    ],
+    [
+      "revolution_6"
+    ],
+    [
+      "revolution_7"
+    ],
+    [
+      "revolution_8"
+    ],
+    [
+      "revolution_9"
+    ],
+    [
+      "revolution_10"
+    ]
+  ]
+}

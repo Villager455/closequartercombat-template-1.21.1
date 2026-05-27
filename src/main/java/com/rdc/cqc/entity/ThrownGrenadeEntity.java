@@ -1,9 +1,12 @@
 package com.rdc.cqc.entity;
 
 import com.rdc.cqc.CloseQuarterCombat;
+import com.rdc.cqc.CQCEvents;
 import com.rdc.cqc.item.CQCItems;
 import com.rdc.cqc.item.CQCDataComponents;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import net.minecraft.advancements.AdvancementHolder;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -32,6 +35,7 @@ import net.minecraft.world.entity.animal.Chicken;
 import net.minecraft.world.entity.animal.IronGolem;
 import net.minecraft.world.entity.animal.Rabbit;
 import net.minecraft.world.entity.animal.frog.Frog;
+import net.minecraft.world.entity.monster.Ravager;
 import net.minecraft.world.entity.monster.Silverfish;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.ThrowableItemProjectile;
@@ -96,6 +100,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     private int fuse = 100;
     private int smokeEmitterAge = 0;
     private int gasEmitterAge = 0;
+    private final Map<Long, Double> gasSurfaceCache = new HashMap<>();
     private boolean stickyStuck = false;
     private boolean airburstLaunched = false;
     private int stickyTargetId = -1;
@@ -139,6 +144,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     private static final int MOLOTOV_MIN_FIRES = 3;
     private static final int MOLOTOV_MAX_FIRES = 6;
     private static final int MOLOTOV_FIRE_RADIUS = 2;
+    private static final float MOLOTOV_ENTITY_FIRE_SECONDS = 30.0F;
     private static final int INCENDIARY_FRAGMENT_COUNT = 5;
     private static final double INCENDIARY_FRAGMENT_SPREAD_RADIUS = 5.0D;
     private static final int CLUSTER_SUBMUNITION_COUNT = 5;
@@ -148,6 +154,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
 
     /** Радіус вибуху для GIGA гранати (трохи сильніший за TNT). */
     public static final float GIGA_EXPLOSION_RADIUS = 4.5F;
+    public static final float GIGA_GIGA_EXPLOSION_RADIUS = GIGA_EXPLOSION_RADIUS * 1.3F;
 
     /** Радіус газової хмари (стартовий). */
     private static final float GAS_CLOUD_RADIUS = 7.0F;
@@ -559,6 +566,11 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             return;
         }
 
+        if (tryMolotovIgniteEntity(result))
+        {
+            return;
+        }
+
         if (tryMolotovIgnite(result.getLocation()))
         {
             return;
@@ -602,7 +614,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         living.hurt(src, damage);
 
         if (getGrenadeType() == Type.SHAPED_CHARGE_GRENADE
-                && living instanceof IronGolem
+                && isArmoredHeatTarget(living)
                 && living.isDeadOrDying())
         {
             awardAdvancementToOwner("for_those_in_the_tank");
@@ -672,6 +684,34 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                     SoundEvents.FIRECHARGE_USE, SoundSource.NEUTRAL,
                     0.9F, 0.9F + this.random.nextFloat() * 0.3F
             );
+            this.discard();
+        }
+
+        return true;
+    }
+
+    private boolean tryMolotovIgniteEntity(EntityHitResult result)
+    {
+        if (getGrenadeType() != Type.MOLOTOV)
+        {
+            return false;
+        }
+
+        if (!this.level().isClientSide() && !this.isRemoved())
+        {
+            Entity target = result.getEntity();
+            if (target instanceof LivingEntity)
+            {
+                target.igniteForSeconds(MOLOTOV_ENTITY_FIRE_SECONDS);
+                if (this.getOwner() instanceof ServerPlayer serverPlayer)
+                {
+                    CQCEvents.trackMolotovBurn((LivingEntity) target, serverPlayer);
+                }
+            }
+
+            Vec3 impactPosition = result.getLocation();
+            spreadMolotovFire(impactPosition);
+            playMolotovIgniteSounds(impactPosition);
             this.discard();
         }
 
@@ -971,10 +1011,10 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         spawnShapedChargeJetParticles(impactPosition, direction);
 
         Vec3 explosionPosition = impactPosition.add(direction.scale(SHAPED_CHARGE_EXPLOSION_DISTANCE));
-        List<IronGolem> nearbyGolems = this.level().getEntitiesOfClass(
-                IronGolem.class,
+        List<LivingEntity> nearbyArmoredTargets = this.level().getEntitiesOfClass(
+                LivingEntity.class,
                 new AABB(explosionPosition, explosionPosition).inflate(3.0D),
-                LivingEntity::isAlive
+                entity -> entity.isAlive() && isArmoredHeatTarget(entity)
         );
         List<LivingEntity> nearbySmallTargets = this.level().getEntitiesOfClass(
                 LivingEntity.class,
@@ -987,7 +1027,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                 HEAT_GRENADE_EXPLOSION_RADIUS,
                 Level.ExplosionInteraction.TNT
         );
-        if (nearbyGolems.stream().anyMatch(LivingEntity::isDeadOrDying))
+        if (nearbyArmoredTargets.stream().anyMatch(LivingEntity::isDeadOrDying))
         {
             awardAdvancementToOwner("for_those_in_the_tank");
         }
@@ -1004,6 +1044,12 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                 || entity instanceof Cat
                 || entity instanceof Frog
                 || entity instanceof Rabbit;
+    }
+
+    private static boolean isArmoredHeatTarget(LivingEntity entity)
+    {
+        return entity instanceof IronGolem
+                || entity instanceof Ravager;
     }
 
     private void awardAdvancementToOwner(String path)
@@ -1127,6 +1173,10 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             this.stickyTargetId = target.getId();
             this.stickyEntityOffset = result.getLocation().subtract(target.position());
             stickAt(result.getLocation(), getGrenadeType() == Type.REMOTE_DYNAMITE_BUNDLE ? this.fuse : 100);
+            if (getGrenadeType() == Type.REMOTE_DYNAMITE_BUNDLE)
+            {
+                awardAdvancementToOwner("go_do_a_crime");
+            }
         }
 
         return true;
@@ -1200,7 +1250,11 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             case FRAG_GRENADE ->
             {
                 // Frag Grenade: шкода від осколків без ламання блоків.
-                spawnShrapnelAndDamage(FRAG_GRENADE_EXPLOSION_RADIUS, FRAG_GRENADE_SHRAPNEL_DAMAGE);
+                int kills = spawnShrapnelAndDamage(FRAG_GRENADE_EXPLOSION_RADIUS, FRAG_GRENADE_SHRAPNEL_DAMAGE);
+                if (kills >= 5)
+                {
+                    awardAdvancementToOwner("fire_in_the_hole");
+                }
                 spawnFragExplosionParticles(this.level(), this.getX(), this.getY() + 0.25D, this.getZ());
                 spawnShrapnelSmokeBurst(this.level(), this.getX(), this.getY() + 0.25D, this.getZ(), FRAG_GRENADE_EXPLOSION_RADIUS, this.random);
 
@@ -1297,12 +1351,18 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             }
             case IMPROVISED_GRENADE ->
             {
+                ServerPlayer owner = this.getOwner() instanceof ServerPlayer serverPlayer ? serverPlayer : null;
+                boolean ownerWasAlive = owner != null && owner.isAlive();
                 this.level().explode(
                         this,
                         this.getX(), this.getY(), this.getZ(),
                         HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
                         Level.ExplosionInteraction.TNT
                 );
+                if (ownerWasAlive && owner.isDeadOrDying())
+                {
+                    awardAdvancementToOwner("price_of_saving");
+                }
             }
             case IMPACT_GRENADE ->
             {
@@ -1390,6 +1450,20 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                         new net.minecraft.core.BlockPos((int)this.getX(), (int)this.getY(), (int)this.getZ()),
                         0);
             }
+            case GIGA_GIGA ->
+            {
+                this.level().explode(
+                        this,
+                        this.getX(), this.getY(), this.getZ(),
+                        GIGA_GIGA_EXPLOSION_RADIUS,
+                        Level.ExplosionInteraction.TNT
+                );
+                spawnShrapnelAndDamage(GIGA_GIGA_EXPLOSION_RADIUS, 91.0F);
+
+                this.level().levelEvent(2009,
+                        new net.minecraft.core.BlockPos((int)this.getX(), (int)this.getY(), (int)this.getZ()),
+                        0);
+            }
             case GAS ->
             {
                 startGasEmitter();
@@ -1417,9 +1491,9 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
      * Спавнить осколки та наносить урагу всім живим істотам у радіусі.
      * Емітує частинки осколків у всіх напрямках від центру вибуху.
      */
-    private void spawnShrapnelAndDamage(float radius, float damage)
+    private int spawnShrapnelAndDamage(float radius, float damage)
     {
-        damageAndSpawnShrapnel(this.level(), this.getX(), this.getY(), this.getZ(), radius, damage, this, (LivingEntity) this.getOwner());
+        return damageAndSpawnShrapnel(this.level(), this.getX(), this.getY(), this.getZ(), radius, damage, this, (LivingEntity) this.getOwner());
     }
 
     private int damageAirburstShrapnel()
@@ -1544,56 +1618,62 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
      *
      * ВИПРАВЛЕНО: Відокремлено від спавнювання частинок
      */
-    public static void damageAndSpawnShrapnel(Level level, double x, double y, double z,
+    public static int damageAndSpawnShrapnel(Level level, double x, double y, double z,
                                               float radius, float damage, LivingEntity thrower)
     {
-        damageAndSpawnShrapnel(level, x, y, z, radius, damage, null, thrower);
+        return damageAndSpawnShrapnel(level, x, y, z, radius, damage, null, thrower);
     }
 
-    public static void damageAndSpawnShrapnel(Level level, double x, double y, double z,
+    public static int damageAndSpawnShrapnel(Level level, double x, double y, double z,
                                               float radius, float damage, Entity projectile, LivingEntity thrower)
     {
-        System.out.println("[GRENADE] damageAndSpawnShrapnel called at " + x + ", " + y + ", " + z + " with radius " + radius);
+        Vec3 origin = new Vec3(x, y, z);
+        double radiusSqr = radius * radius;
+        int kills = 0;
 
         // Знаходимо все живі істоти в радіусі
         List<LivingEntity> entities = level.getEntitiesOfClass(
                 LivingEntity.class,
-                new net.minecraft.world.phys.AABB(x - radius, y - radius, z - radius,
+                new AABB(x - radius, y - radius, z - radius,
                         x + radius, y + radius, z + radius)
         );
 
-        System.out.println("[GRENADE] Found " + entities.size() + " entities in radius");
-
         for (LivingEntity entity : entities)
         {
-            double dist = entity.position().distanceTo(new Vec3(x, y, z));
-            if (dist > radius)
+            double distSqr = entity.distanceToSqr(origin);
+            if (distSqr > radiusSqr)
             {
                 continue; // Entity too far
             }
 
-            if (!canShrapnelReach(level, new Vec3(x, y, z), entity))
+            if (!canShrapnelReach(level, origin, entity))
             {
                 continue;
             }
 
             // Шкода зменшується з відстанню
+            double dist = Math.sqrt(distSqr);
             float falloff = 1.0F - (float)(dist / radius);
             float actualDamage = damage * falloff;
 
             // Мінімум 1 урагу в центрі вибуху
             if (actualDamage < 1.0F) actualDamage = 1.0F;
 
-            System.out.println("[GRENADE] Damaging entity " + entity.getName().getString() + " for " + actualDamage + " damage");
-
             DamageSource src = level.damageSources().thrown(projectile, thrower);
+            boolean wasAlive = entity.isAlive();
             entity.hurt(src, actualDamage);
+            if (wasAlive && !(entity instanceof Player) && entity.isDeadOrDying())
+            {
+                kills++;
+            }
 
             // Легкий штовхач від вибуху
             Vec3 entityPos = entity.position();
             Vec3 direction = entityPos.subtract(x, y, z).normalize();
             entity.knockback(0.5D * falloff, direction.x, direction.z);
         }
+
+        return kills;
     }
 
     /**
@@ -1674,6 +1754,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         this.entityData.set(DATA_GAS_EMITTING, Boolean.TRUE);
         this.entityData.set(DATA_RESTING, Boolean.TRUE);
         this.gasEmitterAge = 0;
+        this.gasSurfaceCache.clear();
         this.setNoGravity(true);
         this.setDeltaMovement(Vec3.ZERO);
     }
@@ -1684,11 +1765,15 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         {
             return;
         }
+        if (this.smokeEmitterAge % 2 != 0)
+        {
+            return;
+        }
 
         double growth = Math.min(1.0D, this.smokeEmitterAge / (double) SMOKE_CLOUD_GROWTH_TICKS);
         double easedGrowth = growth * growth * (3.0D - 2.0D * growth);
         double radius = 0.25D + SMOKE_CLOUD_RADIUS * easedGrowth;
-        int particles = 8 + (int) (34 * easedGrowth);
+        int particles = 9 + (int) (42 * easedGrowth);
 
         for (int i = 0; i < particles; i++)
         {
@@ -1798,6 +1883,13 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     {
         int blockX = Mth.floor(x);
         int blockZ = Mth.floor(z);
+        long cacheKey = gasSurfaceKey(blockX, blockZ);
+        Double cached = this.gasSurfaceCache.get(cacheKey);
+        if (cached != null)
+        {
+            return cached;
+        }
+
         int startY = Mth.floor(this.getY() + GAS_SURFACE_SCAN_UP);
         int minY = Mth.floor(this.getY() - GAS_SURFACE_SCAN_DOWN);
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos(blockX, startY, blockZ);
@@ -1807,11 +1899,19 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             pos.set(blockX, y, blockZ);
             if (this.level().getBlockState(pos).isFaceSturdy(this.level(), pos, Direction.UP))
             {
-                return y + 1.05D;
+                double surfaceY = y + 1.05D;
+                this.gasSurfaceCache.put(cacheKey, surfaceY);
+                return surfaceY;
             }
         }
 
+        this.gasSurfaceCache.put(cacheKey, Double.NaN);
         return Double.NaN;
+    }
+
+    private static long gasSurfaceKey(int x, int z)
+    {
+        return ((long) x << 32) ^ (z & 0xffffffffL);
     }
 
     /**
@@ -1824,6 +1924,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         float velocity = switch (type)
         {
             case GIGA -> GIGA_THROW_VELOCITY;
+            case GIGA_GIGA -> GIGA_THROW_VELOCITY;
             case SMALL_GRENADE -> SMALL_THROW_VELOCITY;
             default -> DEFAULT_THROW_VELOCITY;
         };
@@ -1854,7 +1955,8 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         INCENDIARY_FRAGMENT,     // внутрішній запалювальний уламок
         SAPPER_BAG,              // саперна сумка
         CLUSTER_GRENADE,         // кластерна граната
-        CLUSTER_SUBMUNITION;     // внутрішній кластерний суббоєприпас
+        CLUSTER_SUBMUNITION,     // внутрішній кластерний суббоєприпас
+        GIGA_GIGA;               // гіга гіга граната
 
         public Item getItem()
         {
@@ -1878,6 +1980,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                 case GAS -> CQCItems.GAS_GRENADE.get();
                 case SMOKE -> CQCItems.SMOKE_GRENADE.get();
                 case GIGA -> CQCItems.GIGA_GRENADE.get();
+                case GIGA_GIGA -> CQCItems.GIGA_GIGA_GRENADE.get();
             };
         }
     }

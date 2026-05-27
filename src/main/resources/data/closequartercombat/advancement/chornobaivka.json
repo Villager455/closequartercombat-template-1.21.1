@@ -1,0 +1,82 @@
+{
+  "parent": "closequartercombat:simple_grenades",
+  "display": {
+    "icon": {
+      "id": "closequartercombat:frag_grenade"
+    },
+    "title": {
+      "translate": "advancements.closequartercombat.chornobaivka.title"
+    },
+    "description": {
+      "translate": "advancements.closequartercombat.chornobaivka.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "criteria": {
+    "chornobaivka_1": {
+      "trigger": "minecraft:impossible"
+    },
+    "chornobaivka_2": {
+      "trigger": "minecraft:impossible"
+    },
+    "chornobaivka_3": {
+      "trigger": "minecraft:impossible"
+    },
+    "chornobaivka_4": {
+      "trigger": "minecraft:impossible"
+    },
+    "chornobaivka_5": {
+      "trigger": "minecraft:impossible"
+    },
+    "chornobaivka_6": {
+      "trigger": "minecraft:impossible"
+    },
+    "chornobaivka_7": {
+      "trigger": "minecraft:impossible"
+    },
+    "chornobaivka_8": {
+      "trigger": "minecraft:impossible"
+    },
+    "chornobaivka_9": {
+      "trigger": "minecraft:impossible"
+    },
+    "chornobaivka_10": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "chornobaivka_1"
+    ],
+    [
+      "chornobaivka_2"
+    ],
+    [
+      "chornobaivka_3"
+    ],
+    [
+      "chornobaivka_4"
+    ],
+    [
+      "chornobaivka_5"
+    ],
+    [
+      "chornobaivka_6"
+    ],
+    [
+      "chornobaivka_7"
+    ],
+    [
+      "chornobaivka_8"
+    ],
+    [
+      "chornobaivka_9"
+    ],
+    [
+      "chornobaivka_10"
+    ]
+  ]
+}

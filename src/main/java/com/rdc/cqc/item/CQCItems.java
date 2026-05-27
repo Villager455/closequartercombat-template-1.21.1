@@ -210,6 +210,14 @@ public class CQCItems
             )
     );
 
+    public static final DeferredItem<Item> GIGA_GIGA_GRENADE = ITEMS.register(
+            "giga_giga_grenade",
+            () -> new GrenadeItem(
+                    new Item.Properties().stacksTo(1),
+                    ThrownGrenadeEntity.Type.GIGA_GIGA
+            )
+    );
+
     /**
      * Повертає {@code true}, якщо у слоті голови — протигаз мода.
      */
