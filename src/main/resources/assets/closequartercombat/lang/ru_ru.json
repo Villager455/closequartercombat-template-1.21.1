@@ -47,6 +47,8 @@
   "item.closequartercombat.impact_grenade.tooltip": "Взрывается сразу при первом столкновении.",
   "item.closequartercombat.heat_grenade": "Кумулятивная граната",
   "item.closequartercombat.heat_grenade.tooltip": "Создаёт направленную огненную струю и взрыв перед точкой удара.",
+  "item.closequartercombat.impact_mine": "Ударная мина",
+  "item.closequartercombat.impact_mine.tooltip": "Активируется ПКМ по блоку или цели, создавая кумулятивный взрыв ценой собственного здоровья.",
   "item.closequartercombat.magnetic_grenade": "Магнитная граната",
   "item.closequartercombat.magnetic_grenade.tooltip": "Прилипает к поверхностям и через 10 секунд создаёт двойной направленный взрыв.",
   "item.closequartercombat.sticky_grenade": "Липкая граната",

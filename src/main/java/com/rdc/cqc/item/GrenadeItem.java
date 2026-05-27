@@ -5,6 +5,7 @@ import com.rdc.cqc.CQCEvents;
 import com.rdc.cqc.entity.ThrownGrenadeEntity;
 import net.minecraft.ChatFormatting;
 import net.minecraft.advancements.AdvancementHolder;
+import net.minecraft.advancements.AdvancementProgress;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -191,7 +192,7 @@ public class GrenadeItem extends Item
     public void inventoryTick(ItemStack stack, Level level, Entity entity, int slotId, boolean isSelected)
     {
         if (level.isClientSide()) return;
-        if (entity instanceof ServerPlayer serverPlayer)
+        if (entity instanceof ServerPlayer serverPlayer && level.getGameTime() % 20L == 0L)
         {
             awardInventoryAdvancements(serverPlayer);
         }
@@ -225,174 +226,190 @@ public class GrenadeItem extends Item
      */
     private void detonateInHand(Level level, Player player)
     {
-        switch (this.type)
+        ServerPlayer inHandOwner = player instanceof ServerPlayer serverPlayer ? serverPlayer : null;
+        if (inHandOwner != null)
         {
-            case FRAG_GRENADE ->
+            CQCEvents.beginInHandGrenadeDetonation(inHandOwner, this.type);
+        }
+
+        try
+        {
+            switch (this.type)
             {
-                // Frag Grenade: шкода від осколків без ламання блоків.
-                double explosionY = player.getY() + 0.5D;
-                int kills = ThrownGrenadeEntity.damageAndSpawnShrapnel(level, player.getX(), explosionY, player.getZ(), ThrownGrenadeEntity.FRAG_GRENADE_EXPLOSION_RADIUS, ThrownGrenadeEntity.FRAG_GRENADE_SHRAPNEL_DAMAGE, player);
-                if (kills >= 5 && player instanceof ServerPlayer serverPlayer)
+                case FRAG_GRENADE ->
                 {
-                    awardAdvancement(serverPlayer, "fire_in_the_hole");
+                    // Frag Grenade: шкода від осколків без ламання блоків.
+                    double explosionY = player.getY() + 0.5D;
+                    int kills = ThrownGrenadeEntity.damageAndSpawnShrapnel(level, player.getX(), explosionY, player.getZ(), ThrownGrenadeEntity.FRAG_GRENADE_EXPLOSION_RADIUS, ThrownGrenadeEntity.FRAG_GRENADE_SHRAPNEL_DAMAGE, player);
+                    if (kills >= 5 && player instanceof ServerPlayer fragOwner)
+                    {
+                        awardAdvancement(fragOwner, "fire_in_the_hole");
+                    }
+                    ThrownGrenadeEntity.spawnFragExplosionParticles(level, player.getX(), explosionY + 0.25D, player.getZ());
+                    ThrownGrenadeEntity.spawnShrapnelSmokeBurst(level, player.getX(), explosionY + 0.25D, player.getZ(), ThrownGrenadeEntity.FRAG_GRENADE_EXPLOSION_RADIUS, level.getRandom());
+                    level.levelEvent(2009,
+                            new net.minecraft.core.BlockPos((int) player.getX(), (int) explosionY, (int) player.getZ()),
+                            0);
+                    level.playSound(
+                            null,
+                            player.getX(), explosionY, player.getZ(),
+                            SoundEvents.GENERIC_EXPLODE.value(), SoundSource.NEUTRAL,
+                            1.6F, 1.0F
+                    );
                 }
-                ThrownGrenadeEntity.spawnFragExplosionParticles(level, player.getX(), explosionY + 0.25D, player.getZ());
-                ThrownGrenadeEntity.spawnShrapnelSmokeBurst(level, player.getX(), explosionY + 0.25D, player.getZ(), ThrownGrenadeEntity.FRAG_GRENADE_EXPLOSION_RADIUS, level.getRandom());
-                level.levelEvent(2009,
-                        new net.minecraft.core.BlockPos((int) player.getX(), (int) explosionY, (int) player.getZ()),
-                        0);
-                level.playSound(
-                        null,
-                        player.getX(), explosionY, player.getZ(),
-                        SoundEvents.GENERIC_EXPLODE.value(), SoundSource.NEUTRAL,
-                        1.6F, 1.0F
-                );
+                case AIRBURST_FRAG_GRENADE ->
+                {
+                    double explosionY = player.getY() + 1.6D;
+                    ThrownGrenadeEntity.damageAndSpawnShrapnel(level, player.getX(), explosionY, player.getZ(), 40.0F, ThrownGrenadeEntity.FRAG_GRENADE_SHRAPNEL_DAMAGE, player);
+                    ThrownGrenadeEntity.spawnFragExplosionParticles(level, player.getX(), explosionY + 0.25D, player.getZ());
+                    ThrownGrenadeEntity.spawnShrapnelSmokeBurst(level, player.getX(), explosionY + 0.25D, player.getZ(), 40.0F, level.getRandom());
+                    level.levelEvent(2009,
+                            new net.minecraft.core.BlockPos((int) player.getX(), (int) explosionY, (int) player.getZ()),
+                            0);
+                    level.playSound(
+                            null,
+                            player.getX(), explosionY, player.getZ(),
+                            SoundEvents.GENERIC_EXPLODE.value(), SoundSource.NEUTRAL,
+                            1.9F, 0.85F
+                    );
+                }
+                case HIGH_EXPLOSIVE_GRENADE ->
+                {
+                    // High Explosive Grenade: повний вибух з ламанням блоків (мала сила).
+                    level.explode(
+                            player,
+                            player.getX(), player.getY() + 0.5D, player.getZ(),
+                            ThrownGrenadeEntity.HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
+                            Level.ExplosionInteraction.TNT
+                    );
+                }
+                case SAPPER_BAG ->
+                {
+                    boolean wasAlive = player.isAlive();
+                    level.explode(
+                            player,
+                            player.getX(), player.getY() + 0.5D, player.getZ(),
+                            ThrownGrenadeEntity.SAPPER_BAG_EXPLOSION_RADIUS,
+                            Level.ExplosionInteraction.TNT
+                    );
+                    awardAdvancementIfKilled(player, wasAlive, "more_dangerous_than_it_looks");
+                }
+                case SMALL_GRENADE ->
+                {
+                    level.explode(
+                            player,
+                            player.getX(), player.getY() + 0.5D, player.getZ(),
+                            ThrownGrenadeEntity.SMALL_GRENADE_EXPLOSION_RADIUS,
+                            Level.ExplosionInteraction.TNT
+                    );
+                }
+                case DYNAMITE_STICK ->
+                {
+                    level.explode(
+                            player,
+                            player.getX(), player.getY() + 0.5D, player.getZ(),
+                            ThrownGrenadeEntity.DYNAMITE_STICK_EXPLOSION_RADIUS,
+                            Level.ExplosionInteraction.TNT
+                    );
+                }
+                case IMPROVISED_GRENADE ->
+                {
+                    level.explode(
+                            player,
+                            player.getX(), player.getY() + 0.5D, player.getZ(),
+                            ThrownGrenadeEntity.HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
+                            Level.ExplosionInteraction.TNT
+                    );
+                }
+                case IMPACT_GRENADE ->
+                {
+                    level.explode(
+                            player,
+                            player.getX(), player.getY() + 0.5D, player.getZ(),
+                            ThrownGrenadeEntity.IMPACT_GRENADE_EXPLOSION_RADIUS,
+                            Level.ExplosionInteraction.TNT
+                    );
+                }
+                case SHAPED_CHARGE_GRENADE ->
+                {
+                    level.explode(
+                            player,
+                            player.getX(), player.getY() + 0.5D, player.getZ(),
+                            ThrownGrenadeEntity.HEAT_GRENADE_EXPLOSION_RADIUS,
+                            Level.ExplosionInteraction.TNT
+                    );
+                }
+                case MAGNETIC_GRENADE ->
+                {
+                    level.explode(
+                            player,
+                            player.getX(), player.getY() + 0.5D, player.getZ(),
+                            ThrownGrenadeEntity.HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
+                            Level.ExplosionInteraction.TNT
+                    );
+                }
+                case STICKY_GRENADE ->
+                {
+                    level.explode(
+                            player,
+                            player.getX(), player.getY() + 0.5D, player.getZ(),
+                            ThrownGrenadeEntity.HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
+                            Level.ExplosionInteraction.TNT
+                    );
+                }
+                case REMOTE_DYNAMITE_BUNDLE ->
+                {
+                    level.explode(
+                            player,
+                            player.getX(), player.getY() + 0.5D, player.getZ(),
+                            ThrownGrenadeEntity.HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
+                            Level.ExplosionInteraction.TNT
+                    );
+                }
+                case GIGA ->
+                {
+                    // Гіга граната: потужний вибух з ламанням блоків
+                    level.explode(
+                            player,
+                            player.getX(), player.getY() + 0.5D, player.getZ(),
+                            ThrownGrenadeEntity.GIGA_EXPLOSION_RADIUS,
+                            Level.ExplosionInteraction.TNT
+                    );
+                    // Також наносимо урагу від осколків
+                    ThrownGrenadeEntity.damageAndSpawnShrapnel(level, player.getX(), player.getY() + 0.5D, player.getZ(), ThrownGrenadeEntity.GIGA_EXPLOSION_RADIUS, 70.0F, player);
+                }
+                case GIGA_GIGA ->
+                {
+                    level.explode(
+                            player,
+                            player.getX(), player.getY() + 0.5D, player.getZ(),
+                            ThrownGrenadeEntity.GIGA_GIGA_EXPLOSION_RADIUS,
+                            Level.ExplosionInteraction.TNT
+                    );
+                    ThrownGrenadeEntity.damageAndSpawnShrapnel(level, player.getX(), player.getY() + 0.5D, player.getZ(), ThrownGrenadeEntity.GIGA_GIGA_EXPLOSION_RADIUS, 91.0F, player);
+                }
+                case GAS ->
+                {
+                    // Створюємо тимчасову гранату-сутність, яка стане газовим емітером.
+                    ThrownGrenadeEntity dummy = new ThrownGrenadeEntity(level, player, ThrownGrenadeEntity.Type.GAS);
+                    dummy.setPos(player.getX(), player.getY() + 0.5D, player.getZ());
+                    level.addFreshEntity(dummy);
+                    dummy.setFuse(1); // вибухне на наступному тіку у власній позиції
+                }
+                case INCENDIARY_GRENADE ->
+                {
+                    ThrownGrenadeEntity dummy = new ThrownGrenadeEntity(level, player, ThrownGrenadeEntity.Type.INCENDIARY_GRENADE);
+                    dummy.setPos(player.getX(), player.getY() + 0.5D, player.getZ());
+                    level.addFreshEntity(dummy);
+                    dummy.setFuse(1);
+                }
             }
-            case AIRBURST_FRAG_GRENADE ->
+        }
+        finally
+        {
+            if (inHandOwner != null)
             {
-                double explosionY = player.getY() + 1.6D;
-                ThrownGrenadeEntity.damageAndSpawnShrapnel(level, player.getX(), explosionY, player.getZ(), 40.0F, ThrownGrenadeEntity.FRAG_GRENADE_SHRAPNEL_DAMAGE, player);
-                ThrownGrenadeEntity.spawnFragExplosionParticles(level, player.getX(), explosionY + 0.25D, player.getZ());
-                ThrownGrenadeEntity.spawnShrapnelSmokeBurst(level, player.getX(), explosionY + 0.25D, player.getZ(), 40.0F, level.getRandom());
-                level.levelEvent(2009,
-                        new net.minecraft.core.BlockPos((int) player.getX(), (int) explosionY, (int) player.getZ()),
-                        0);
-                level.playSound(
-                        null,
-                        player.getX(), explosionY, player.getZ(),
-                        SoundEvents.GENERIC_EXPLODE.value(), SoundSource.NEUTRAL,
-                        1.9F, 0.85F
-                );
-            }
-            case HIGH_EXPLOSIVE_GRENADE ->
-            {
-                // High Explosive Grenade: повний вибух з ламанням блоків (мала сила).
-                level.explode(
-                        player,
-                        player.getX(), player.getY() + 0.5D, player.getZ(),
-                        ThrownGrenadeEntity.HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
-                        Level.ExplosionInteraction.TNT
-                );
-            }
-            case SAPPER_BAG ->
-            {
-                boolean wasAlive = player.isAlive();
-                level.explode(
-                        player,
-                        player.getX(), player.getY() + 0.5D, player.getZ(),
-                        ThrownGrenadeEntity.SAPPER_BAG_EXPLOSION_RADIUS,
-                        Level.ExplosionInteraction.TNT
-                );
-                awardAdvancementIfKilled(player, wasAlive, "more_dangerous_than_it_looks");
-            }
-            case SMALL_GRENADE ->
-            {
-                level.explode(
-                        player,
-                        player.getX(), player.getY() + 0.5D, player.getZ(),
-                        ThrownGrenadeEntity.SMALL_GRENADE_EXPLOSION_RADIUS,
-                        Level.ExplosionInteraction.TNT
-                );
-            }
-            case DYNAMITE_STICK ->
-            {
-                level.explode(
-                        player,
-                        player.getX(), player.getY() + 0.5D, player.getZ(),
-                        ThrownGrenadeEntity.DYNAMITE_STICK_EXPLOSION_RADIUS,
-                        Level.ExplosionInteraction.TNT
-                );
-            }
-            case IMPROVISED_GRENADE ->
-            {
-                level.explode(
-                        player,
-                        player.getX(), player.getY() + 0.5D, player.getZ(),
-                        ThrownGrenadeEntity.HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
-                        Level.ExplosionInteraction.TNT
-                );
-            }
-            case IMPACT_GRENADE ->
-            {
-                level.explode(
-                        player,
-                        player.getX(), player.getY() + 0.5D, player.getZ(),
-                        ThrownGrenadeEntity.IMPACT_GRENADE_EXPLOSION_RADIUS,
-                        Level.ExplosionInteraction.TNT
-                );
-            }
-            case SHAPED_CHARGE_GRENADE ->
-            {
-                level.explode(
-                        player,
-                        player.getX(), player.getY() + 0.5D, player.getZ(),
-                        ThrownGrenadeEntity.HEAT_GRENADE_EXPLOSION_RADIUS,
-                        Level.ExplosionInteraction.TNT
-                );
-            }
-            case MAGNETIC_GRENADE ->
-            {
-                level.explode(
-                        player,
-                        player.getX(), player.getY() + 0.5D, player.getZ(),
-                        ThrownGrenadeEntity.HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
-                        Level.ExplosionInteraction.TNT
-                );
-            }
-            case STICKY_GRENADE ->
-            {
-                level.explode(
-                        player,
-                        player.getX(), player.getY() + 0.5D, player.getZ(),
-                        ThrownGrenadeEntity.HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
-                        Level.ExplosionInteraction.TNT
-                );
-            }
-            case REMOTE_DYNAMITE_BUNDLE ->
-            {
-                level.explode(
-                        player,
-                        player.getX(), player.getY() + 0.5D, player.getZ(),
-                        ThrownGrenadeEntity.HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
-                        Level.ExplosionInteraction.TNT
-                );
-            }
-            case GIGA ->
-            {
-                // Гіга граната: потужний вибух з ламанням блоків
-                level.explode(
-                        player,
-                        player.getX(), player.getY() + 0.5D, player.getZ(),
-                        ThrownGrenadeEntity.GIGA_EXPLOSION_RADIUS,
-                        Level.ExplosionInteraction.TNT
-                );
-                // Також наносимо урагу від осколків
-                ThrownGrenadeEntity.damageAndSpawnShrapnel(level, player.getX(), player.getY() + 0.5D, player.getZ(), ThrownGrenadeEntity.GIGA_EXPLOSION_RADIUS, 70.0F, player);
-            }
-            case GIGA_GIGA ->
-            {
-                level.explode(
-                        player,
-                        player.getX(), player.getY() + 0.5D, player.getZ(),
-                        ThrownGrenadeEntity.GIGA_GIGA_EXPLOSION_RADIUS,
-                        Level.ExplosionInteraction.TNT
-                );
-                ThrownGrenadeEntity.damageAndSpawnShrapnel(level, player.getX(), player.getY() + 0.5D, player.getZ(), ThrownGrenadeEntity.GIGA_GIGA_EXPLOSION_RADIUS, 91.0F, player);
-            }
-            case GAS ->
-            {
-                // Створюємо тимчасову гранату-сутність, яка стане газовим емітером.
-                ThrownGrenadeEntity dummy = new ThrownGrenadeEntity(level, player, ThrownGrenadeEntity.Type.GAS);
-                dummy.setPos(player.getX(), player.getY() + 0.5D, player.getZ());
-                level.addFreshEntity(dummy);
-                dummy.setFuse(1); // вибухне на наступному тіку у власній позиції
-            }
-            case INCENDIARY_GRENADE ->
-            {
-                ThrownGrenadeEntity dummy = new ThrownGrenadeEntity(level, player, ThrownGrenadeEntity.Type.INCENDIARY_GRENADE);
-                dummy.setPos(player.getX(), player.getY() + 0.5D, player.getZ());
-                level.addFreshEntity(dummy);
-                dummy.setFuse(1);
+                CQCEvents.endInHandGrenadeDetonation();
             }
         }
     }
@@ -470,7 +487,11 @@ public class GrenadeItem extends Item
         );
         if (advancement != null)
         {
-            serverPlayer.getAdvancements().award(advancement, path);
+            AdvancementProgress progress = serverPlayer.getAdvancements().getOrStartProgress(advancement);
+            if (!progress.isDone())
+            {
+                serverPlayer.getAdvancements().award(advancement, path);
+            }
         }
     }
 

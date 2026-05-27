@@ -170,6 +170,11 @@ public class CQCItems
             )
     );
 
+    public static final DeferredItem<Item> IMPACT_MINE = ITEMS.register(
+            "impact_mine",
+            () -> new ImpactMineItem(new Item.Properties().stacksTo(1))
+    );
+
     public static final DeferredItem<Item> MAGNETIC_GRENADE = ITEMS.register(
             "magnetic_grenade",
             () -> new GrenadeItem(

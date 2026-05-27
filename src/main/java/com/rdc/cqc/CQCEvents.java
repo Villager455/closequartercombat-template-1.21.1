@@ -50,7 +50,10 @@ import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 public class CQCEvents
 {
     private static final int MOLOTOV_BURN_TRACK_TICKS = 20 * 40;
+    private static final int MOLOTOV_FIRE_TRACK_TICKS = 20 * 45;
     private static final Map<UUID, MolotovBurn> MOLOTOV_BURNS = new HashMap<>();
+    private static final Map<MolotovFirePos, MolotovBurn> MOLOTOV_FIRES = new HashMap<>();
+    private static final ThreadLocal<GrenadeKill> ACTIVE_IN_HAND_GRENADE = new ThreadLocal<>();
 
     /**
      * Блокує накладання будь-якого {@link net.minecraft.world.effect.MobEffect MobEffect}
@@ -86,6 +89,7 @@ public class CQCEvents
         {
             return;
         }
+        cleanupMolotovTracking(serverLevel);
 
         GrenadeKill grenadeKill = getGrenadeKill(serverLevel, victim, event.getSource());
         if (grenadeKill == null || grenadeKill.owner() == null)
@@ -127,10 +131,35 @@ public class CQCEvents
             return;
         }
 
+        cleanupMolotovTracking((ServerLevel) target.level());
         MOLOTOV_BURNS.put(
                 target.getUUID(),
                 new MolotovBurn(owner.getUUID(), target.level().getGameTime() + MOLOTOV_BURN_TRACK_TICKS)
         );
+    }
+
+    public static void trackMolotovFire(Level level, BlockPos firePos, ServerPlayer owner)
+    {
+        if (!(level instanceof ServerLevel serverLevel))
+        {
+            return;
+        }
+
+        cleanupMolotovTracking(serverLevel);
+        MOLOTOV_FIRES.put(
+                new MolotovFirePos(serverLevel.dimension().location(), firePos.immutable()),
+                new MolotovBurn(owner.getUUID(), serverLevel.getGameTime() + MOLOTOV_FIRE_TRACK_TICKS)
+        );
+    }
+
+    public static void beginInHandGrenadeDetonation(ServerPlayer owner, ThrownGrenadeEntity.Type type)
+    {
+        ACTIVE_IN_HAND_GRENADE.set(new GrenadeKill(owner, type));
+    }
+
+    public static void endInHandGrenadeDetonation()
+    {
+        ACTIVE_IN_HAND_GRENADE.remove();
     }
 
     public static void recordIncendiaryGrenadeUse(ServerPlayer player)
@@ -170,6 +199,16 @@ public class CQCEvents
             return new GrenadeKill(owner, grenade.getGrenadeType());
         }
 
+        GrenadeKill inHandGrenade = ACTIVE_IN_HAND_GRENADE.get();
+        if (inHandGrenade != null)
+        {
+            Entity sourceEntity = source.getEntity();
+            if (sourceEntity == null || sourceEntity == inHandGrenade.owner())
+            {
+                return inHandGrenade;
+            }
+        }
+
         if (isFireDamage(source))
         {
             MolotovBurn burn = MOLOTOV_BURNS.get(victim.getUUID());
@@ -186,9 +225,45 @@ public class CQCEvents
                     return new GrenadeKill(owner, ThrownGrenadeEntity.Type.MOLOTOV);
                 }
             }
+
+            burn = findMolotovFireBurn(level, victim.blockPosition());
+            if (burn != null)
+            {
+                ServerPlayer owner = level.getServer().getPlayerList().getPlayer(burn.ownerId());
+                return new GrenadeKill(owner, ThrownGrenadeEntity.Type.MOLOTOV);
+            }
         }
 
         return null;
+    }
+
+    private static MolotovBurn findMolotovFireBurn(ServerLevel level, BlockPos victimPos)
+    {
+        ResourceLocation dimension = level.dimension().location();
+        for (BlockPos nearby : BlockPos.betweenClosed(victimPos.offset(-1, -1, -1), victimPos.offset(1, 1, 1)))
+        {
+            MolotovBurn burn = MOLOTOV_FIRES.get(new MolotovFirePos(dimension, nearby.immutable()));
+            if (burn != null)
+            {
+                if (level.getGameTime() > burn.expiresAt())
+                {
+                    MOLOTOV_FIRES.remove(new MolotovFirePos(dimension, nearby.immutable()));
+                    continue;
+                }
+                return burn;
+            }
+        }
+        return null;
+    }
+
+    private static void cleanupMolotovTracking(ServerLevel level)
+    {
+        long gameTime = level.getGameTime();
+        ResourceLocation dimension = level.dimension().location();
+        MOLOTOV_BURNS.entrySet().removeIf(entry -> gameTime > entry.getValue().expiresAt());
+        MOLOTOV_FIRES.entrySet().removeIf(entry ->
+                entry.getKey().dimension().equals(dimension) && gameTime > entry.getValue().expiresAt()
+        );
     }
 
     private static boolean isFireDamage(DamageSource source)
@@ -238,6 +313,8 @@ public class CQCEvents
     private record GrenadeKill(ServerPlayer owner, ThrownGrenadeEntity.Type type) {}
 
     private record MolotovBurn(UUID ownerId, long expiresAt) {}
+
+    private record MolotovFirePos(ResourceLocation dimension, BlockPos pos) {}
 
     public static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event)
     {

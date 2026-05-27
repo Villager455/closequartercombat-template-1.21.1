@@ -135,7 +135,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
 
     /** Шкода при прямому влучанні контактних гранат у моба/гравця. */
     private static final float IMPACT_GRENADE_DIRECT_HIT_DAMAGE = 30.0F;
-    private static final float HEAT_GRENADE_DIRECT_HIT_DAMAGE = 150.0F;
+    public static final float HEAT_GRENADE_DIRECT_HIT_DAMAGE = 150.0F;
 
     /** Довжина видимого кумулятивного струменя та відстань вибуху від точки удару. */
     private static final double SHAPED_CHARGE_JET_LENGTH = 3.0D;
@@ -671,7 +671,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
 
         if (!this.level().isClientSide() && !this.isRemoved())
         {
-            spreadMolotovFire(impactPosition);
+            spreadMolotovFire(impactPosition, true);
             this.level().playSound(
                     null,
                     impactPosition.x, impactPosition.y, impactPosition.z,
@@ -710,7 +710,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             }
 
             Vec3 impactPosition = result.getLocation();
-            spreadMolotovFire(impactPosition);
+            spreadMolotovFire(impactPosition, true);
             playMolotovIgniteSounds(impactPosition);
             this.discard();
         }
@@ -740,15 +740,15 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         BlockPos hitBlock = result.getBlockPos();
         Direction face = result.getDirection();
         BlockPos surfaceFirePos = hitBlock.relative(face);
-        tryPlaceFire(surfaceFirePos);
+        tryPlaceFire(surfaceFirePos, true);
 
         if (face.getAxis().isHorizontal())
         {
-            tryPlaceFire(surfaceFirePos.below());
-            tryPlaceFire(surfaceFirePos.above());
+            tryPlaceFire(surfaceFirePos.below(), true);
+            tryPlaceFire(surfaceFirePos.above(), true);
         }
 
-        spreadMolotovFire(Vec3.atCenterOf(surfaceFirePos));
+        spreadMolotovFire(Vec3.atCenterOf(surfaceFirePos), true);
     }
 
     private void playMolotovIgniteSounds(Vec3 position)
@@ -845,6 +845,11 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
 
     private void spreadMolotovFire(Vec3 impactPosition)
     {
+        spreadMolotovFire(impactPosition, false);
+    }
+
+    private void spreadMolotovFire(Vec3 impactPosition, boolean trackMolotovOwner)
+    {
         BlockPos center = BlockPos.containing(impactPosition);
         int fireCount = MOLOTOV_MIN_FIRES + this.random.nextInt(MOLOTOV_MAX_FIRES - MOLOTOV_MIN_FIRES + 1);
         int placed = 0;
@@ -867,7 +872,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                 if (this.level().isEmptyBlock(firePos)
                         && this.level().getBlockState(below).isFaceSturdy(this.level(), below, Direction.UP))
                 {
-                    tryPlaceFire(firePos);
+                    tryPlaceFire(firePos, trackMolotovOwner);
                     placed++;
                     break;
                 }
@@ -895,12 +900,21 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
 
     private boolean tryPlaceFire(BlockPos firePos)
     {
+        return tryPlaceFire(firePos, false);
+    }
+
+    private boolean tryPlaceFire(BlockPos firePos, boolean trackMolotovOwner)
+    {
         if (!this.level().isEmptyBlock(firePos))
         {
             return false;
         }
 
         this.level().setBlock(firePos, BaseFireBlock.getState(this.level(), firePos), 11);
+        if (trackMolotovOwner && this.getOwner() instanceof ServerPlayer serverPlayer)
+        {
+            CQCEvents.trackMolotovFire(this.level(), firePos, serverPlayer);
+        }
         return true;
     }
 
@@ -1004,36 +1018,42 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
 
     private void detonateShapedCharge(Vec3 impactPosition, Vec3 impactVelocity)
     {
-        Vec3 direction = impactVelocity.lengthSqr() > 1.0E-4D
-                ? impactVelocity.normalize()
-                : this.getLookAngle().normalize();
+        ServerPlayer owner = this.getOwner() instanceof ServerPlayer serverPlayer ? serverPlayer : null;
+        detonateShapedChargeAt(this.level(), this, owner, impactPosition, impactVelocity);
+    }
 
-        spawnShapedChargeJetParticles(impactPosition, direction);
+    public static void detonateShapedChargeAt(Level level, Entity explosionSource, ServerPlayer owner, Vec3 impactPosition, Vec3 impactDirection)
+    {
+        Vec3 direction = impactDirection.lengthSqr() > 1.0E-4D
+                ? impactDirection.normalize()
+                : new Vec3(0.0D, 0.0D, 1.0D);
+
+        spawnShapedChargeJetParticles(level, impactPosition, direction);
 
         Vec3 explosionPosition = impactPosition.add(direction.scale(SHAPED_CHARGE_EXPLOSION_DISTANCE));
-        List<LivingEntity> nearbyArmoredTargets = this.level().getEntitiesOfClass(
+        List<LivingEntity> nearbyArmoredTargets = level.getEntitiesOfClass(
                 LivingEntity.class,
                 new AABB(explosionPosition, explosionPosition).inflate(3.0D),
                 entity -> entity.isAlive() && isArmoredHeatTarget(entity)
         );
-        List<LivingEntity> nearbySmallTargets = this.level().getEntitiesOfClass(
+        List<LivingEntity> nearbySmallTargets = level.getEntitiesOfClass(
                 LivingEntity.class,
                 new AABB(explosionPosition, explosionPosition).inflate(3.0D),
                 entity -> entity.isAlive() && isSmallHeatTarget(entity)
         );
-        this.level().explode(
-                this,
+        level.explode(
+                explosionSource,
                 explosionPosition.x, explosionPosition.y, explosionPosition.z,
                 HEAT_GRENADE_EXPLOSION_RADIUS,
                 Level.ExplosionInteraction.TNT
         );
-        if (nearbyArmoredTargets.stream().anyMatch(LivingEntity::isDeadOrDying))
+        if (owner != null && nearbyArmoredTargets.stream().anyMatch(LivingEntity::isDeadOrDying))
         {
-            awardAdvancementToOwner("for_those_in_the_tank");
+            awardAdvancement(owner, "for_those_in_the_tank");
         }
-        if (nearbySmallTargets.stream().anyMatch(LivingEntity::isDeadOrDying))
+        if (owner != null && nearbySmallTargets.stream().anyMatch(LivingEntity::isDeadOrDying))
         {
-            awardAdvancementToOwner("slight_exaggeration");
+            awardAdvancement(owner, "slight_exaggeration");
         }
     }
 
@@ -1059,6 +1079,17 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             return;
         }
 
+        AdvancementHolder advancement = serverPlayer.server.getAdvancements().get(
+                ResourceLocation.fromNamespaceAndPath(CloseQuarterCombat.MODID, path)
+        );
+        if (advancement != null)
+        {
+            serverPlayer.getAdvancements().award(advancement, path);
+        }
+    }
+
+    private static void awardAdvancement(ServerPlayer serverPlayer, String path)
+    {
         AdvancementHolder advancement = serverPlayer.server.getAdvancements().get(
                 ResourceLocation.fromNamespaceAndPath(CloseQuarterCombat.MODID, path)
         );
@@ -1094,7 +1125,12 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
 
     private void spawnShapedChargeJetParticles(Vec3 origin, Vec3 direction)
     {
-        if (!(this.level() instanceof ServerLevel serverLevel))
+        spawnShapedChargeJetParticles(this.level(), origin, direction);
+    }
+
+    private static void spawnShapedChargeJetParticles(Level level, Vec3 origin, Vec3 direction)
+    {
+        if (!(level instanceof ServerLevel serverLevel))
         {
             return;
         }
@@ -1386,7 +1422,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             }
             case MOLOTOV ->
             {
-                spreadMolotovFire(this.position());
+                spreadMolotovFire(this.position(), true);
                 this.level().playSound(
                         null,
                         this.getX(), this.getY(), this.getZ(),
@@ -1674,41 +1710,6 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         }
 
         return kills;
-    }
-
-    /**
-     * Наносить шкоду всім живим істотам у радіусі, імітуючи осколки від гранати.
-     */
-    private void damageEntitiesInRadius(float radius, float damage)
-    {
-        List<LivingEntity> entities = this.level().getEntitiesOfClass(
-                LivingEntity.class,
-                this.getBoundingBox().inflate(radius)
-        );
-
-        for (LivingEntity entity : entities)
-        {
-            if (entity == this.getOwner()) continue; // не ранимо власника
-
-            double dist = this.distanceTo(entity);
-            if (dist > radius) continue;
-
-            if (!canShrapnelReach(this.level(), this.position(), entity))
-            {
-                continue;
-            }
-
-            // Шкода зменшується з відстанню
-            float falloff = 1.0F - (float)(dist / radius);
-            float actualDamage = damage * falloff;
-
-            DamageSource src = this.damageSources().thrown(this, this.getOwner());
-            entity.hurt(src, actualDamage);
-
-            // Легкий штовхач від вибуху
-            Vec3 direction = entity.position().subtract(this.position()).normalize();
-            entity.knockback(0.5D * falloff, direction.x, direction.z);
-        }
     }
 
     private static boolean canShrapnelReach(Level level, Vec3 origin, LivingEntity entity)

@@ -47,6 +47,8 @@
   "item.closequartercombat.impact_grenade.tooltip": "Explodes immediately on first impact.",
   "item.closequartercombat.heat_grenade": "HEAT Grenade",
   "item.closequartercombat.heat_grenade.tooltip": "Creates a directed flame jet and explodes ahead of the impact point.",
+  "item.closequartercombat.impact_mine": "Impact Mine",
+  "item.closequartercombat.impact_mine.tooltip": "Right-click a block or target to create a shaped-charge blast at the cost of your own health.",
   "item.closequartercombat.magnetic_grenade": "Magnetic Grenade",
   "item.closequartercombat.magnetic_grenade.tooltip": "Sticks to surfaces and creates a double directed blast after 10 seconds.",
   "item.closequartercombat.sticky_grenade": "Sticky Grenade",
