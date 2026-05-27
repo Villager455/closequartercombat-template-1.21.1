@@ -1,0 +1,25 @@
+{
+  "parent": "closequartercombat:item/heat_grenade",
+  "display": {
+    "thirdperson_righthand": {
+      "rotation": [-90, 0, -60],
+      "translation": [2, 0.1, -3],
+      "scale": [1.35, 1.35, 1.35]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [-90, 0, 30],
+      "translation": [2, 0.1, -3],
+      "scale": [1.35, 1.35, 1.35]
+    },
+    "firstperson_righthand": {
+      "rotation": [0, -90, 25],
+      "translation": [1.13, 3.2, 1.13],
+      "scale": [1.35, 1.35, 1.35]
+    },
+    "firstperson_lefthand": {
+      "rotation": [0, 90, -25],
+      "translation": [1.13, 3.2, 1.13],
+      "scale": [1.35, 1.35, 1.35]
+    }
+  }
+}

@@ -137,8 +137,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     private static final float IMPACT_GRENADE_DIRECT_HIT_DAMAGE = 30.0F;
     public static final float HEAT_GRENADE_DIRECT_HIT_DAMAGE = 150.0F;
 
-    /** Довжина видимого кумулятивного струменя та відстань вибуху від точки удару. */
-    private static final double SHAPED_CHARGE_JET_LENGTH = 3.0D;
+    /** Відстань вибуху від точки удару для звичайного кумулятивного заряду. */
     private static final double SHAPED_CHARGE_EXPLOSION_DISTANCE = 4.0D;
     private static final int MAGNETIC_GRENADE_FUSE_TICKS = 200;
     private static final int MOLOTOV_MIN_FIRES = 3;
@@ -238,6 +237,8 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     {
         return getGrenadeType() != Type.IMPACT_GRENADE
                 && getGrenadeType() != Type.SHAPED_CHARGE_GRENADE
+                && getGrenadeType() != Type.HEAT_PROJECTILE
+                && getGrenadeType() != Type.LARGE_HEAT_PROJECTILE
                 && getGrenadeType() != Type.MAGNETIC_GRENADE
                 && getGrenadeType() != Type.REMOTE_DYNAMITE_BUNDLE
                 && getGrenadeType() != Type.MOLOTOV
@@ -601,7 +602,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         float damage = switch (getGrenadeType())
         {
             case IMPACT_GRENADE -> IMPACT_GRENADE_DIRECT_HIT_DAMAGE;
-            case SHAPED_CHARGE_GRENADE -> HEAT_GRENADE_DIRECT_HIT_DAMAGE;
+            case SHAPED_CHARGE_GRENADE, HEAT_PROJECTILE, LARGE_HEAT_PROJECTILE -> HEAT_GRENADE_DIRECT_HIT_DAMAGE;
             default -> 0.0F;
         };
 
@@ -613,13 +614,13 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         DamageSource src = this.damageSources().thrown(this, this.getOwner());
         living.hurt(src, damage);
 
-        if (getGrenadeType() == Type.SHAPED_CHARGE_GRENADE
+        if (isHeatType(getGrenadeType())
                 && isArmoredHeatTarget(living)
                 && living.isDeadOrDying())
         {
             awardAdvancementToOwner("for_those_in_the_tank");
         }
-        if (getGrenadeType() == Type.SHAPED_CHARGE_GRENADE
+        if (isHeatType(getGrenadeType())
                 && isSmallHeatTarget(living)
                 && living.isDeadOrDying())
         {
@@ -1002,7 +1003,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
 
     private boolean tryShapedChargeDetonate(Vec3 impactPosition, Vec3 impactVelocity)
     {
-        if (getGrenadeType() != Type.SHAPED_CHARGE_GRENADE)
+        if (!isHeatType(getGrenadeType()))
         {
             return false;
         }
@@ -1028,7 +1029,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                 ? impactDirection.normalize()
                 : new Vec3(0.0D, 0.0D, 1.0D);
 
-        spawnShapedChargeJetParticles(level, impactPosition, direction);
+        HeatChargeEffects.spawnJetParticles(level, impactPosition, direction);
 
         Vec3 explosionPosition = impactPosition.add(direction.scale(SHAPED_CHARGE_EXPLOSION_DISTANCE));
         List<LivingEntity> nearbyArmoredTargets = level.getEntitiesOfClass(
@@ -1072,6 +1073,13 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                 || entity instanceof Ravager;
     }
 
+    private static boolean isHeatType(Type type)
+    {
+        return type == Type.SHAPED_CHARGE_GRENADE
+                || type == Type.HEAT_PROJECTILE
+                || type == Type.LARGE_HEAT_PROJECTILE;
+    }
+
     private void awardAdvancementToOwner(String path)
     {
         if (!(this.getOwner() instanceof ServerPlayer serverPlayer))
@@ -1106,57 +1114,13 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                 : this.getLookAngle().normalize();
 
         Vec3 origin = this.position();
-        spawnShapedChargeJetParticles(origin, direction);
-
-        Vec3 explosionPosition = origin.add(direction.scale(SHAPED_CHARGE_EXPLOSION_DISTANCE));
-        this.level().explode(
+        HeatChargeEffects.detonateDoubleBlast(
+                this.level(),
                 this,
-                origin.x, origin.y, origin.z,
-                HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
-                Level.ExplosionInteraction.TNT
+                origin,
+                direction,
+                HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS
         );
-        this.level().explode(
-                this,
-                explosionPosition.x, explosionPosition.y, explosionPosition.z,
-                HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
-                Level.ExplosionInteraction.TNT
-        );
-    }
-
-    private void spawnShapedChargeJetParticles(Vec3 origin, Vec3 direction)
-    {
-        spawnShapedChargeJetParticles(this.level(), origin, direction);
-    }
-
-    private static void spawnShapedChargeJetParticles(Level level, Vec3 origin, Vec3 direction)
-    {
-        if (!(level instanceof ServerLevel serverLevel))
-        {
-            return;
-        }
-
-        int points = 18;
-        for (int i = 0; i <= points; i++)
-        {
-            double progress = i / (double) points;
-            Vec3 position = origin.add(direction.scale(SHAPED_CHARGE_JET_LENGTH * progress));
-            Vec3 velocity = direction.scale(0.02D + progress * 0.04D);
-
-            serverLevel.sendParticles(
-                    ParticleTypes.FLAME,
-                    position.x, position.y, position.z,
-                    2,
-                    0.025D, 0.025D, 0.025D,
-                    0.01D
-            );
-            serverLevel.sendParticles(
-                    ParticleTypes.SMALL_FLAME,
-                    position.x, position.y, position.z,
-                    0,
-                    velocity.x, velocity.y, velocity.z,
-                    1.0D
-            );
-        }
     }
 
     private boolean tryStickToBlock(BlockHitResult result)
@@ -1409,12 +1373,25 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                         Level.ExplosionInteraction.TNT
                 );
             }
-            case SHAPED_CHARGE_GRENADE ->
+            case SHAPED_CHARGE_GRENADE, HEAT_PROJECTILE ->
             {
                 Vec3 direction = this.getDeltaMovement().lengthSqr() > 1.0E-4D
                         ? this.getDeltaMovement()
                         : this.getLookAngle();
                 detonateShapedCharge(this.position(), direction);
+            }
+            case LARGE_HEAT_PROJECTILE ->
+            {
+                Vec3 direction = this.getDeltaMovement().lengthSqr() > 1.0E-4D
+                        ? this.getDeltaMovement()
+                        : this.getLookAngle();
+                HeatChargeEffects.detonateDoubleBlast(
+                        this.level(),
+                        this,
+                        this.position(),
+                        direction,
+                        HeatChargeEffects.LARGE_HEAT_PROJECTILE_EXPLOSION_RADIUS
+                );
             }
             case MAGNETIC_GRENADE ->
             {
@@ -1957,7 +1934,9 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         SAPPER_BAG,              // саперна сумка
         CLUSTER_GRENADE,         // кластерна граната
         CLUSTER_SUBMUNITION,     // внутрішній кластерний суббоєприпас
-        GIGA_GIGA;               // гіга гіга граната
+        GIGA_GIGA,               // гіга гіга граната
+        HEAT_PROJECTILE,         // снаряд гранатомета з кумулятивним зарядом
+        LARGE_HEAT_PROJECTILE;   // снаряд гранатомета з великим кумулятивним зарядом
 
         public Item getItem()
         {
@@ -1972,7 +1951,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                 case REMOTE_DYNAMITE_BUNDLE -> CQCItems.REMOTE_DYNAMITE_BUNDLE.get();
                 case IMPROVISED_GRENADE -> CQCItems.IMPROVISED_GRENADE.get();
                 case IMPACT_GRENADE -> CQCItems.IMPACT_GRENADE.get();
-                case SHAPED_CHARGE_GRENADE -> CQCItems.SHAPED_CHARGE_GRENADE.get();
+                case SHAPED_CHARGE_GRENADE, HEAT_PROJECTILE, LARGE_HEAT_PROJECTILE -> CQCItems.SHAPED_CHARGE_GRENADE.get();
                 case MAGNETIC_GRENADE -> CQCItems.MAGNETIC_GRENADE.get();
                 case MOLOTOV -> CQCItems.MOLOTOV.get();
                 case INCENDIARY_GRENADE, INCENDIARY_FRAGMENT -> CQCItems.INCENDIARY_GRENADE.get();

@@ -175,6 +175,21 @@ public class CQCItems
             () -> new ImpactMineItem(new Item.Properties().stacksTo(1))
     );
 
+    public static final DeferredItem<Item> HEAT_LAUNCHER = ITEMS.register(
+            "heat_launcher",
+            () -> new HeatLauncherItem(new Item.Properties().stacksTo(1), ThrownGrenadeEntity.Type.HEAT_PROJECTILE)
+    );
+
+    public static final DeferredItem<Item> LARGE_HEAT_LAUNCHER = ITEMS.register(
+            "large_heat_launcher",
+            () -> new HeatLauncherItem(new Item.Properties().stacksTo(1), ThrownGrenadeEntity.Type.LARGE_HEAT_PROJECTILE)
+    );
+
+    public static final DeferredItem<Item> EMPTY_LAUNCH_TUBE = ITEMS.register(
+            "empty_launch_tube",
+            () -> new Item(new Item.Properties().stacksTo(1))
+    );
+
     public static final DeferredItem<Item> MAGNETIC_GRENADE = ITEMS.register(
             "magnetic_grenade",
             () -> new GrenadeItem(
