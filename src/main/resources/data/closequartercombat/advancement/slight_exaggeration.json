@@ -1,0 +1,28 @@
+{
+  "parent": "closequartercombat:simple_grenades",
+  "display": {
+    "icon": {
+      "id": "closequartercombat:heat_grenade"
+    },
+    "title": {
+      "translate": "advancements.closequartercombat.slight_exaggeration.title"
+    },
+    "description": {
+      "translate": "advancements.closequartercombat.slight_exaggeration.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "slight_exaggeration": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "slight_exaggeration"
+    ]
+  ]
+}

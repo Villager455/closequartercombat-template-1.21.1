@@ -58,5 +58,18 @@
   "item.closequartercombat.giga_grenade": "Гига граната",
   "item.closequartercombat.giga_grenade.tooltip": "Тяжёлая граната с очень мощным взрывом.",
 
-  "entity.closequartercombat.thrown_grenade": "Брошенная граната"
+  "entity.closequartercombat.thrown_grenade": "Брошенная граната",
+
+  "advancements.closequartercombat.simple_grenades.title": "Simple Grenades",
+  "advancements.closequartercombat.simple_grenades.description": "Гранаты, взрывы и сомнительные решения",
+  "advancements.closequartercombat.professional.title": "\"Профессионал\"",
+  "advancements.closequartercombat.professional.description": "Забыть бросить гранату после активации запала",
+  "advancements.closequartercombat.for_those_in_the_tank.title": "Для тех кто в танке",
+  "advancements.closequartercombat.for_those_in_the_tank.description": "Убить железного голема кумулятивной гранатой",
+  "advancements.closequartercombat.lead_rain.title": "Свинцовый дождь",
+  "advancements.closequartercombat.lead_rain.description": "Убить 10 мобов одной подпрыгивающей гранатой",
+  "advancements.closequartercombat.slight_exaggeration.title": "Небольшое преувеличение",
+  "advancements.closequartercombat.slight_exaggeration.description": "Использовать кумулятивную гранату не по назначению",
+  "advancements.closequartercombat.more_dangerous_than_it_looks.title": "Опаснее чем выглядит",
+  "advancements.closequartercombat.more_dangerous_than_it_looks.description": "Не рассчитать силу детонации сапёрной сумки"
 }

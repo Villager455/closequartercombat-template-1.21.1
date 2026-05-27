@@ -1,0 +1,23 @@
+{
+  "display": {
+    "icon": {
+      "id": "closequartercombat:frag_grenade"
+    },
+    "title": {
+      "translate": "advancements.closequartercombat.simple_grenades.title"
+    },
+    "description": {
+      "translate": "advancements.closequartercombat.simple_grenades.description"
+    },
+    "background": "minecraft:textures/gui/advancements/backgrounds/stone.png",
+    "frame": "task",
+    "show_toast": false,
+    "announce_to_chat": false,
+    "hidden": false
+  },
+  "criteria": {
+    "tick": {
+      "trigger": "minecraft:tick"
+    }
+  }
+}

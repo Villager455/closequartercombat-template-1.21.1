@@ -1,0 +1,28 @@
+{
+  "parent": "closequartercombat:simple_grenades",
+  "display": {
+    "icon": {
+      "id": "closequartercombat:heat_grenade"
+    },
+    "title": {
+      "translate": "advancements.closequartercombat.for_those_in_the_tank.title"
+    },
+    "description": {
+      "translate": "advancements.closequartercombat.for_those_in_the_tank.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "for_those_in_the_tank": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "for_those_in_the_tank"
+    ]
+  ]
+}

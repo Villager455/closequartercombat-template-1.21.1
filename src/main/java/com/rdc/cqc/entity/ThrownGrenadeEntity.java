@@ -1,11 +1,14 @@
 package com.rdc.cqc.entity;
 
+import com.rdc.cqc.CloseQuarterCombat;
 import com.rdc.cqc.item.CQCItems;
 import com.rdc.cqc.item.CQCDataComponents;
 import java.util.List;
+import net.minecraft.advancements.AdvancementHolder;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
@@ -24,6 +27,12 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.animal.Cat;
+import net.minecraft.world.entity.animal.Chicken;
+import net.minecraft.world.entity.animal.IronGolem;
+import net.minecraft.world.entity.animal.Rabbit;
+import net.minecraft.world.entity.animal.frog.Frog;
+import net.minecraft.world.entity.monster.Silverfish;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.ThrowableItemProjectile;
 import net.minecraft.world.item.Item;
@@ -31,6 +40,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseFireBlock;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -590,6 +600,19 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
 
         DamageSource src = this.damageSources().thrown(this, this.getOwner());
         living.hurt(src, damage);
+
+        if (getGrenadeType() == Type.SHAPED_CHARGE_GRENADE
+                && living instanceof IronGolem
+                && living.isDeadOrDying())
+        {
+            awardAdvancementToOwner("for_those_in_the_tank");
+        }
+        if (getGrenadeType() == Type.SHAPED_CHARGE_GRENADE
+                && isSmallHeatTarget(living)
+                && living.isDeadOrDying())
+        {
+            awardAdvancementToOwner("slight_exaggeration");
+        }
     }
 
     /**
@@ -745,6 +768,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                 impactPosition.z,
                 CLUSTER_SUBMUNITION_SHRAPNEL_RADIUS,
                 CLUSTER_SUBMUNITION_SHRAPNEL_DAMAGE,
+                this,
                 this.getOwner() instanceof LivingEntity living ? living : null
         );
         spawnFragExplosionParticles(this.level(), impactPosition.x, impactPosition.y + 0.15D, impactPosition.z);
@@ -947,12 +971,55 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         spawnShapedChargeJetParticles(impactPosition, direction);
 
         Vec3 explosionPosition = impactPosition.add(direction.scale(SHAPED_CHARGE_EXPLOSION_DISTANCE));
+        List<IronGolem> nearbyGolems = this.level().getEntitiesOfClass(
+                IronGolem.class,
+                new AABB(explosionPosition, explosionPosition).inflate(3.0D),
+                LivingEntity::isAlive
+        );
+        List<LivingEntity> nearbySmallTargets = this.level().getEntitiesOfClass(
+                LivingEntity.class,
+                new AABB(explosionPosition, explosionPosition).inflate(3.0D),
+                entity -> entity.isAlive() && isSmallHeatTarget(entity)
+        );
         this.level().explode(
-                null,
+                this,
                 explosionPosition.x, explosionPosition.y, explosionPosition.z,
                 HEAT_GRENADE_EXPLOSION_RADIUS,
                 Level.ExplosionInteraction.TNT
         );
+        if (nearbyGolems.stream().anyMatch(LivingEntity::isDeadOrDying))
+        {
+            awardAdvancementToOwner("for_those_in_the_tank");
+        }
+        if (nearbySmallTargets.stream().anyMatch(LivingEntity::isDeadOrDying))
+        {
+            awardAdvancementToOwner("slight_exaggeration");
+        }
+    }
+
+    private static boolean isSmallHeatTarget(LivingEntity entity)
+    {
+        return entity instanceof Chicken
+                || entity instanceof Silverfish
+                || entity instanceof Cat
+                || entity instanceof Frog
+                || entity instanceof Rabbit;
+    }
+
+    private void awardAdvancementToOwner(String path)
+    {
+        if (!(this.getOwner() instanceof ServerPlayer serverPlayer))
+        {
+            return;
+        }
+
+        AdvancementHolder advancement = serverPlayer.server.getAdvancements().get(
+                ResourceLocation.fromNamespaceAndPath(CloseQuarterCombat.MODID, path)
+        );
+        if (advancement != null)
+        {
+            serverPlayer.getAdvancements().award(advancement, path);
+        }
     }
 
     private void detonateMagneticGrenade()
@@ -966,13 +1033,13 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
 
         Vec3 explosionPosition = origin.add(direction.scale(SHAPED_CHARGE_EXPLOSION_DISTANCE));
         this.level().explode(
-                null,
+                this,
                 origin.x, origin.y, origin.z,
                 HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
                 Level.ExplosionInteraction.TNT
         );
         this.level().explode(
-                null,
+                this,
                 explosionPosition.x, explosionPosition.y, explosionPosition.z,
                 HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
                 Level.ExplosionInteraction.TNT
@@ -1168,7 +1235,11 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                     return;
                 }
 
-                damageAirburstShrapnel();
+                int kills = damageAirburstShrapnel();
+                if (kills >= 10)
+                {
+                    awardAdvancementToOwner("lead_rain");
+                }
                 spawnFragExplosionParticles(this.level(), this.getX(), this.getY() + 0.25D, this.getZ());
                 spawnShrapnelSmokeBurst(this.level(), this.getX(), this.getY() + 0.25D, this.getZ(), AIRBURST_FRAG_GRENADE_EXPLOSION_RADIUS, this.random);
                 this.level().levelEvent(2009,
@@ -1185,7 +1256,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             {
                 // High Explosive Grenade: повний вибух з ламанням блоків, але слабше за TNT.
                 this.level().explode(
-                        null,
+                        this,
                         this.getX(), this.getY(), this.getZ(),
                         HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
                         Level.ExplosionInteraction.TNT
@@ -1193,17 +1264,23 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             }
             case SAPPER_BAG ->
             {
+                ServerPlayer owner = this.getOwner() instanceof ServerPlayer serverPlayer ? serverPlayer : null;
+                boolean ownerWasAlive = owner != null && owner.isAlive();
                 this.level().explode(
-                        null,
+                        this,
                         this.getX(), this.getY(), this.getZ(),
                         SAPPER_BAG_EXPLOSION_RADIUS,
                         Level.ExplosionInteraction.TNT
                 );
+                if (ownerWasAlive && owner.isDeadOrDying())
+                {
+                    awardAdvancementToOwner("more_dangerous_than_it_looks");
+                }
             }
             case SMALL_GRENADE ->
             {
                 this.level().explode(
-                        null,
+                        this,
                         this.getX(), this.getY(), this.getZ(),
                         SMALL_GRENADE_EXPLOSION_RADIUS,
                         Level.ExplosionInteraction.TNT
@@ -1212,7 +1289,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             case DYNAMITE_STICK ->
             {
                 this.level().explode(
-                        null,
+                        this,
                         this.getX(), this.getY(), this.getZ(),
                         DYNAMITE_STICK_EXPLOSION_RADIUS,
                         Level.ExplosionInteraction.TNT
@@ -1221,7 +1298,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             case IMPROVISED_GRENADE ->
             {
                 this.level().explode(
-                        null,
+                        this,
                         this.getX(), this.getY(), this.getZ(),
                         HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
                         Level.ExplosionInteraction.TNT
@@ -1230,7 +1307,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             case IMPACT_GRENADE ->
             {
                 this.level().explode(
-                        null,
+                        this,
                         this.getX(), this.getY(), this.getZ(),
                         IMPACT_GRENADE_EXPLOSION_RADIUS,
                         Level.ExplosionInteraction.TNT
@@ -1282,7 +1359,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             case STICKY_GRENADE ->
             {
                 this.level().explode(
-                        null,
+                        this,
                         this.getX(), this.getY(), this.getZ(),
                         HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
                         Level.ExplosionInteraction.TNT
@@ -1291,7 +1368,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             case REMOTE_DYNAMITE_BUNDLE ->
             {
                 this.level().explode(
-                        null,
+                        this,
                         this.getX(), this.getY(), this.getZ(),
                         HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
                         Level.ExplosionInteraction.TNT
@@ -1301,7 +1378,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             {
                 // Гіга граната: потужний вибух з ламанням блоків, трохи сильніше за TNT.
                 this.level().explode(
-                        null,
+                        this,
                         this.getX(), this.getY(), this.getZ(),
                         GIGA_EXPLOSION_RADIUS,
                         Level.ExplosionInteraction.TNT
@@ -1342,13 +1419,14 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
      */
     private void spawnShrapnelAndDamage(float radius, float damage)
     {
-        damageAndSpawnShrapnel(this.level(), this.getX(), this.getY(), this.getZ(), radius, damage, (LivingEntity) this.getOwner());
+        damageAndSpawnShrapnel(this.level(), this.getX(), this.getY(), this.getZ(), radius, damage, this, (LivingEntity) this.getOwner());
     }
 
-    private void damageAirburstShrapnel()
+    private int damageAirburstShrapnel()
     {
         float radius = AIRBURST_FRAG_GRENADE_EXPLOSION_RADIUS;
         Vec3 origin = this.position();
+        int kills = 0;
         List<LivingEntity> entities = this.level().getEntitiesOfClass(
                 LivingEntity.class,
                 new net.minecraft.world.phys.AABB(
@@ -1371,13 +1449,20 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             }
 
             float actualDamage = getAirburstShrapnelDamage(dist);
+            boolean wasAlive = entity.isAlive();
             DamageSource src = this.damageSources().thrown(this, this.getOwner());
             entity.hurt(src, actualDamage);
+            if (wasAlive && !(entity instanceof Player) && entity.isDeadOrDying())
+            {
+                kills++;
+            }
 
             float falloff = 1.0F - (float) (dist / radius);
             Vec3 direction = entity.position().subtract(origin).normalize();
             entity.knockback(0.5D * falloff, direction.x, direction.z);
         }
+
+        return kills;
     }
 
     private static float getAirburstShrapnelDamage(double distance)
@@ -1462,6 +1547,12 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     public static void damageAndSpawnShrapnel(Level level, double x, double y, double z,
                                               float radius, float damage, LivingEntity thrower)
     {
+        damageAndSpawnShrapnel(level, x, y, z, radius, damage, null, thrower);
+    }
+
+    public static void damageAndSpawnShrapnel(Level level, double x, double y, double z,
+                                              float radius, float damage, Entity projectile, LivingEntity thrower)
+    {
         System.out.println("[GRENADE] damageAndSpawnShrapnel called at " + x + ", " + y + ", " + z + " with radius " + radius);
 
         // Знаходимо все живі істоти в радіусі
@@ -1495,7 +1586,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
 
             System.out.println("[GRENADE] Damaging entity " + entity.getName().getString() + " for " + actualDamage + " damage");
 
-            DamageSource src = level.damageSources().thrown(null, thrower);
+            DamageSource src = level.damageSources().thrown(projectile, thrower);
             entity.hurt(src, actualDamage);
 
             // Легкий штовхач від вибуху

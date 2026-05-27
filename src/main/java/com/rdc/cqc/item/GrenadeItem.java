@@ -1,9 +1,13 @@
 package com.rdc.cqc.item;
 
+import com.rdc.cqc.CloseQuarterCombat;
 import com.rdc.cqc.entity.ThrownGrenadeEntity;
 import net.minecraft.ChatFormatting;
+import net.minecraft.advancements.AdvancementHolder;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.stats.Stats;
@@ -160,10 +164,7 @@ public class GrenadeItem extends Item
 
         player.awardStat(Stats.ITEM_USED.get(this));
 
-        if (!player.getAbilities().instabuild)
-        {
-            stack.shrink(1);
-        }
+        stack.shrink(1);
 
         return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
     }
@@ -185,7 +186,9 @@ public class GrenadeItem extends Item
         if (fuse <= 0)
         {
             // Вибух у руці гравця.
+            boolean wasAlive = player.isAlive();
             detonateInHand(level, player);
+            awardProfessionalIfKilledByHandGrenade(player, wasAlive);
             stack.shrink(1);
         }
         else
@@ -239,7 +242,7 @@ public class GrenadeItem extends Item
             {
                 // High Explosive Grenade: повний вибух з ламанням блоків (мала сила).
                 level.explode(
-                        null,
+                        player,
                         player.getX(), player.getY() + 0.5D, player.getZ(),
                         ThrownGrenadeEntity.HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
                         Level.ExplosionInteraction.TNT
@@ -247,17 +250,19 @@ public class GrenadeItem extends Item
             }
             case SAPPER_BAG ->
             {
+                boolean wasAlive = player.isAlive();
                 level.explode(
-                        null,
+                        player,
                         player.getX(), player.getY() + 0.5D, player.getZ(),
                         ThrownGrenadeEntity.SAPPER_BAG_EXPLOSION_RADIUS,
                         Level.ExplosionInteraction.TNT
                 );
+                awardAdvancementIfKilled(player, wasAlive, "more_dangerous_than_it_looks");
             }
             case SMALL_GRENADE ->
             {
                 level.explode(
-                        null,
+                        player,
                         player.getX(), player.getY() + 0.5D, player.getZ(),
                         ThrownGrenadeEntity.SMALL_GRENADE_EXPLOSION_RADIUS,
                         Level.ExplosionInteraction.TNT
@@ -266,7 +271,7 @@ public class GrenadeItem extends Item
             case DYNAMITE_STICK ->
             {
                 level.explode(
-                        null,
+                        player,
                         player.getX(), player.getY() + 0.5D, player.getZ(),
                         ThrownGrenadeEntity.DYNAMITE_STICK_EXPLOSION_RADIUS,
                         Level.ExplosionInteraction.TNT
@@ -275,7 +280,7 @@ public class GrenadeItem extends Item
             case IMPROVISED_GRENADE ->
             {
                 level.explode(
-                        null,
+                        player,
                         player.getX(), player.getY() + 0.5D, player.getZ(),
                         ThrownGrenadeEntity.HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
                         Level.ExplosionInteraction.TNT
@@ -284,7 +289,7 @@ public class GrenadeItem extends Item
             case IMPACT_GRENADE ->
             {
                 level.explode(
-                        null,
+                        player,
                         player.getX(), player.getY() + 0.5D, player.getZ(),
                         ThrownGrenadeEntity.IMPACT_GRENADE_EXPLOSION_RADIUS,
                         Level.ExplosionInteraction.TNT
@@ -293,7 +298,7 @@ public class GrenadeItem extends Item
             case SHAPED_CHARGE_GRENADE ->
             {
                 level.explode(
-                        null,
+                        player,
                         player.getX(), player.getY() + 0.5D, player.getZ(),
                         ThrownGrenadeEntity.HEAT_GRENADE_EXPLOSION_RADIUS,
                         Level.ExplosionInteraction.TNT
@@ -302,7 +307,7 @@ public class GrenadeItem extends Item
             case MAGNETIC_GRENADE ->
             {
                 level.explode(
-                        null,
+                        player,
                         player.getX(), player.getY() + 0.5D, player.getZ(),
                         ThrownGrenadeEntity.HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
                         Level.ExplosionInteraction.TNT
@@ -311,7 +316,7 @@ public class GrenadeItem extends Item
             case STICKY_GRENADE ->
             {
                 level.explode(
-                        null,
+                        player,
                         player.getX(), player.getY() + 0.5D, player.getZ(),
                         ThrownGrenadeEntity.HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
                         Level.ExplosionInteraction.TNT
@@ -320,7 +325,7 @@ public class GrenadeItem extends Item
             case REMOTE_DYNAMITE_BUNDLE ->
             {
                 level.explode(
-                        null,
+                        player,
                         player.getX(), player.getY() + 0.5D, player.getZ(),
                         ThrownGrenadeEntity.HIGH_EXPLOSIVE_GRENADE_EXPLOSION_RADIUS,
                         Level.ExplosionInteraction.TNT
@@ -330,7 +335,7 @@ public class GrenadeItem extends Item
             {
                 // Гіга граната: потужний вибух з ламанням блоків
                 level.explode(
-                        null,
+                        player,
                         player.getX(), player.getY() + 0.5D, player.getZ(),
                         ThrownGrenadeEntity.GIGA_EXPLOSION_RADIUS,
                         Level.ExplosionInteraction.TNT
@@ -400,5 +405,36 @@ public class GrenadeItem extends Item
     {
         return player.getMainHandItem().is(Items.FLINT_AND_STEEL)
                 || player.getOffhandItem().is(Items.FLINT_AND_STEEL);
+    }
+
+    private static void awardProfessionalIfKilledByHandGrenade(Player player, boolean wasAlive)
+    {
+        if (!wasAlive || !(player instanceof ServerPlayer serverPlayer) || !player.isDeadOrDying())
+        {
+            return;
+        }
+
+        awardAdvancement(serverPlayer, "professional");
+    }
+
+    private static void awardAdvancementIfKilled(Player player, boolean wasAlive, String path)
+    {
+        if (!wasAlive || !(player instanceof ServerPlayer serverPlayer) || !player.isDeadOrDying())
+        {
+            return;
+        }
+
+        awardAdvancement(serverPlayer, path);
+    }
+
+    private static void awardAdvancement(ServerPlayer serverPlayer, String path)
+    {
+        AdvancementHolder advancement = serverPlayer.server.getAdvancements().get(
+                ResourceLocation.fromNamespaceAndPath(CloseQuarterCombat.MODID, path)
+        );
+        if (advancement != null)
+        {
+            serverPlayer.getAdvancements().award(advancement, path);
+        }
     }
 }

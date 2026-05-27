@@ -58,5 +58,18 @@
   "item.closequartercombat.giga_grenade": "Giga Grenade",
   "item.closequartercombat.giga_grenade.tooltip": "A heavy grenade with a very powerful blast.",
 
-  "entity.closequartercombat.thrown_grenade": "Thrown Grenade"
+  "entity.closequartercombat.thrown_grenade": "Thrown Grenade",
+
+  "advancements.closequartercombat.simple_grenades.title": "Simple Grenades",
+  "advancements.closequartercombat.simple_grenades.description": "Grenades, explosions, and questionable decisions",
+  "advancements.closequartercombat.professional.title": "\"Professional\"",
+  "advancements.closequartercombat.professional.description": "Forget to throw a grenade after activating the fuse",
+  "advancements.closequartercombat.for_those_in_the_tank.title": "For Those in the Tank",
+  "advancements.closequartercombat.for_those_in_the_tank.description": "Kill an iron golem with a HEAT grenade",
+  "advancements.closequartercombat.lead_rain.title": "Lead Rain",
+  "advancements.closequartercombat.lead_rain.description": "Kill 10 mobs with one airburst frag grenade",
+  "advancements.closequartercombat.slight_exaggeration.title": "A Slight Exaggeration",
+  "advancements.closequartercombat.slight_exaggeration.description": "Use a HEAT grenade for something other than its intended purpose",
+  "advancements.closequartercombat.more_dangerous_than_it_looks.title": "More Dangerous Than It Looks",
+  "advancements.closequartercombat.more_dangerous_than_it_looks.description": "Miscalculate the blast of a sapper bag"
 }

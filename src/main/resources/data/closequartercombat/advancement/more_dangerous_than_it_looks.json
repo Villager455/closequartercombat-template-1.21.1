@@ -1,0 +1,28 @@
+{
+  "parent": "closequartercombat:simple_grenades",
+  "display": {
+    "icon": {
+      "id": "closequartercombat:sapper_bag"
+    },
+    "title": {
+      "translate": "advancements.closequartercombat.more_dangerous_than_it_looks.title"
+    },
+    "description": {
+      "translate": "advancements.closequartercombat.more_dangerous_than_it_looks.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "more_dangerous_than_it_looks": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "more_dangerous_than_it_looks"
+    ]
+  ]
+}

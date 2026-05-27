@@ -1,0 +1,28 @@
+{
+  "parent": "closequartercombat:simple_grenades",
+  "display": {
+    "icon": {
+      "id": "closequartercombat:frag_grenade"
+    },
+    "title": {
+      "translate": "advancements.closequartercombat.professional.title"
+    },
+    "description": {
+      "translate": "advancements.closequartercombat.professional.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "professional": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "professional"
+    ]
+  ]
+}
