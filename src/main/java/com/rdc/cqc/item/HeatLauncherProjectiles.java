@@ -19,6 +19,7 @@ public final class HeatLauncherProjectiles
     private static final double BACKBLAST_LENGTH = 2.0D;
     private static final double BACKBLAST_RADIUS = 0.75D;
     private static final double BLOCKED_BACKBLAST_CHECK_DISTANCE = 0.5D;
+    private static final double[] BLOCKED_BACKBLAST_CHECK_HEIGHTS = {0.2D, 0.9D, 1.55D};
     private static final float BACKBLAST_DAMAGE = 5.0F;
     private static final float BLOCKED_BACKBLAST_VELOCITY_MULTIPLIER = 0.5F;
     private static final int BLOCKED_BACKBLAST_FIRE_SECONDS = 5;
@@ -72,23 +73,32 @@ public final class HeatLauncherProjectiles
 
     private static boolean isBackblastBlocked(ServerLevel level, Player player)
     {
-        Vec3 backward = player.getLookAngle().normalize().scale(-1.0D);
-        Vec3 origin = player.getEyePosition().add(0.0D, -0.25D, 0.0D);
-        Vec3 blockedPoint = origin.add(backward.scale(BLOCKED_BACKBLAST_CHECK_DISTANCE));
-        BlockPos blockPos = BlockPos.containing(blockedPoint);
-        BlockState blockState = level.getBlockState(blockPos);
-        return blockState.isCollisionShapeFullBlock(level, blockPos);
+        Vec3 backward = getHorizontalBackblastDirection(player);
+        Vec3 feet = player.position();
+        for (double height : BLOCKED_BACKBLAST_CHECK_HEIGHTS)
+        {
+            Vec3 blockedPoint = feet.add(0.0D, height, 0.0D).add(backward.scale(BLOCKED_BACKBLAST_CHECK_DISTANCE));
+            BlockPos blockPos = BlockPos.containing(blockedPoint);
+            BlockState blockState = level.getBlockState(blockPos);
+            if (blockState.isCollisionShapeFullBlock(level, blockPos))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static void spawnBackblast(ServerLevel level, Player player, boolean blockedBackblast)
     {
-        Vec3 backward = player.getLookAngle().normalize().scale(-1.0D);
+        Vec3 backward = getHorizontalBackblastDirection(player);
         Vec3 origin = player.getEyePosition().add(0.0D, -0.25D, 0.0D);
 
         for (int i = 0; i < 9; i++)
         {
             double distance = 0.25D + (BACKBLAST_LENGTH - 0.25D) * i / 8.0D;
             Vec3 particlePos = origin.add(backward.scale(distance));
+            int smokeCount = Math.max(1, (int) Math.ceil((9 - i) / 3.0D));
             level.sendParticles(
                     i % 3 == 0 ? ParticleTypes.FLAME : ParticleTypes.SMOKE,
                     particlePos.x, particlePos.y, particlePos.z,
@@ -97,18 +107,20 @@ public final class HeatLauncherProjectiles
                     0.03D
             );
             level.sendParticles(
-                    blockedBackblast ? ParticleTypes.CLOUD : ParticleTypes.CAMPFIRE_COSY_SMOKE,
+                    blockedBackblast ? ParticleTypes.CLOUD : ParticleTypes.SMOKE,
                     particlePos.x, particlePos.y, particlePos.z,
-                    Math.max(1, (5 - i / 2) / 3),
+                    smokeCount,
                     0.06D, 0.04D, 0.06D,
                     blockedBackblast ? 0.08D : 0.18D
             );
         }
 
         AABB damageBox = new AABB(origin, origin.add(backward.scale(BACKBLAST_LENGTH))).inflate(BACKBLAST_RADIUS);
+        double radiusSqr = BACKBLAST_RADIUS * BACKBLAST_RADIUS;
         for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, damageBox, target -> target != player && target.isAlive()))
         {
-            Vec3 toTarget = target.getBoundingBox().getCenter().subtract(origin);
+            Vec3 targetCenter = target.getBoundingBox().getCenter();
+            Vec3 toTarget = targetCenter.subtract(origin);
             double distanceBehind = toTarget.dot(backward);
             if (distanceBehind < 0.0D || distanceBehind > BACKBLAST_LENGTH)
             {
@@ -116,11 +128,24 @@ public final class HeatLauncherProjectiles
             }
 
             Vec3 closestPoint = origin.add(backward.scale(distanceBehind));
-            if (target.getBoundingBox().getCenter().distanceToSqr(closestPoint) <= BACKBLAST_RADIUS * BACKBLAST_RADIUS)
+            if (targetCenter.distanceToSqr(closestPoint) <= radiusSqr)
             {
                 target.hurt(level.damageSources().playerAttack(player), BACKBLAST_DAMAGE);
             }
         }
+    }
+
+    private static Vec3 getHorizontalBackblastDirection(Player player)
+    {
+        Vec3 look = player.getLookAngle();
+        Vec3 backward = new Vec3(-look.x, 0.0D, -look.z);
+        if (backward.lengthSqr() < 1.0E-4D)
+        {
+            double yaw = Math.toRadians(player.getYRot());
+            backward = new Vec3(Math.sin(yaw), 0.0D, -Math.cos(yaw));
+        }
+
+        return backward.normalize();
     }
 
     private static float getVelocity(ThrownGrenadeEntity.Type projectileType)

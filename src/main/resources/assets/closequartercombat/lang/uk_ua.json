@@ -43,6 +43,8 @@
   "item.closequartercombat.incendiary_grenade.tooltip": "Через 5 секунд розкидає запалювальні уламки, що підпалюють поверхні.",
   "item.closequartercombat.cluster_grenade": "Кластерна граната",
   "item.closequartercombat.cluster_grenade.tooltip": "Через 2 секунди розкидає суббоєприпаси, що вибухають слабкими осколковими зарядами.",
+  "item.closequartercombat.flashbang_grenade": "Світло-шумова граната",
+  "item.closequartercombat.flashbang_grenade.tooltip": "Швидко детонує і засліплює гравців, які дивляться на спалах.",
   "item.closequartercombat.impact_grenade": "Ударна граната",
   "item.closequartercombat.impact_grenade.tooltip": "Вибухає одразу при першому зіткненні.",
   "item.closequartercombat.heat_grenade": "Кумулятивна граната",
@@ -74,6 +76,7 @@
   "item.closequartercombat.giga_giga_grenade.tooltip": "Ще важча граната з вибухом на 30% потужнішим за гіга гранату.",
 
   "entity.closequartercombat.thrown_grenade": "Кинута граната",
+  "effect.closequartercombat.flashing": "Засліплення",
 
   "advancements.closequartercombat.simple_grenades.title": "Simple Grenades",
   "advancements.closequartercombat.simple_grenades.description": "Гранати, вибухи та сумнівні рішення",

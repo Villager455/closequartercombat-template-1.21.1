@@ -48,9 +48,10 @@ public class GrenadeItem extends Item
     public static final int DEFAULT_FUSE_TICKS = 100;
     private static final int SMALL_GRENADE_FUSE_TICKS = 60;
     private static final int CLUSTER_GRENADE_FUSE_TICKS = 20;
+    private static final int FLASHBANG_GRENADE_FUSE_TICKS = 20;
     private static final int SAPPER_BAG_FUSE_TICKS = 300;
     private static final int REMOTE_DYNAMITE_BUNDLE_SELF_DESTRUCT_TICKS = 6000;
-    private static final int IMPROVISED_MIN_FUSE_TICKS = 10;
+    private static final int IMPROVISED_MIN_FUSE_TICKS = 0;
     private static final int IMPROVISED_QUICK_MAX_FUSE_TICKS = 20;
     private static final int IMPROVISED_MAX_FUSE_TICKS = 200;
 
@@ -104,6 +105,7 @@ public class GrenadeItem extends Item
                 || this.type == ThrownGrenadeEntity.Type.SMALL_GRENADE
                 || this.type == ThrownGrenadeEntity.Type.IMPROVISED_GRENADE
                 || this.type == ThrownGrenadeEntity.Type.CLUSTER_GRENADE
+                || this.type == ThrownGrenadeEntity.Type.FLASHBANG_GRENADE
                 || this.type == ThrownGrenadeEntity.Type.MOLOTOV)
         {
             return;
@@ -403,6 +405,13 @@ public class GrenadeItem extends Item
                     level.addFreshEntity(dummy);
                     dummy.setFuse(1);
                 }
+                case FLASHBANG_GRENADE ->
+                {
+                    ThrownGrenadeEntity dummy = new ThrownGrenadeEntity(level, player, ThrownGrenadeEntity.Type.FLASHBANG_GRENADE);
+                    dummy.setPos(player.getX(), player.getY() + 0.5D, player.getZ());
+                    level.addFreshEntity(dummy);
+                    dummy.setFuse(1);
+                }
             }
         }
         finally
@@ -424,6 +433,11 @@ public class GrenadeItem extends Item
         if (this.type == ThrownGrenadeEntity.Type.CLUSTER_GRENADE)
         {
             return CLUSTER_GRENADE_FUSE_TICKS;
+        }
+
+        if (this.type == ThrownGrenadeEntity.Type.FLASHBANG_GRENADE)
+        {
+            return FLASHBANG_GRENADE_FUSE_TICKS;
         }
 
         if (this.type == ThrownGrenadeEntity.Type.SAPPER_BAG)

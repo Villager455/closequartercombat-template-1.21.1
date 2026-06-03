@@ -154,6 +154,14 @@ public class CQCItems
             )
     );
 
+    public static final DeferredItem<Item> FLASHBANG_GRENADE = ITEMS.register(
+            "flashbang_grenade",
+            () -> new GrenadeItem(
+                    new Item.Properties().stacksTo(1),
+                    ThrownGrenadeEntity.Type.FLASHBANG_GRENADE
+            )
+    );
+
     public static final DeferredItem<Item> IMPACT_GRENADE = ITEMS.register(
             "impact_grenade",
             () -> new GrenadeItem(

@@ -2,6 +2,7 @@ package com.rdc.cqc;
 
 import com.rdc.cqc.item.CQCItems;
 import com.rdc.cqc.entity.ThrownGrenadeEntity;
+import com.rdc.cqc.effect.CQCEffects;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -18,6 +19,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageTypes;
+import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -61,10 +63,17 @@ public class CQCEvents
      */
     public static void onMobEffectApplicable(MobEffectEvent.Applicable event)
     {
-        if (event.getEntity() instanceof Player player && CQCItems.isWearingGasMask(player))
+        if (event.getEntity() instanceof Player player
+                && CQCItems.isWearingGasMask(player)
+                && !canPassThroughGasMask(event.getEffectInstance().getEffect().value()))
         {
             event.setResult(MobEffectEvent.Applicable.Result.DO_NOT_APPLY);
         }
+    }
+
+    private static boolean canPassThroughGasMask(MobEffect effect)
+    {
+        return effect == CQCEffects.FLASHING.get();
     }
 
     /**

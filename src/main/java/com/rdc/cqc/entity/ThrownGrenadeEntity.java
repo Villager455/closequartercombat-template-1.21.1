@@ -2,6 +2,7 @@ package com.rdc.cqc.entity;
 
 import com.rdc.cqc.CloseQuarterCombat;
 import com.rdc.cqc.CQCEvents;
+import com.rdc.cqc.effect.CQCEffects;
 import com.rdc.cqc.item.CQCItems;
 import com.rdc.cqc.item.CQCDataComponents;
 import java.util.HashMap;
@@ -75,6 +76,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     private static final float DEFAULT_THROW_VELOCITY = 0.7F;
     private static final float GIGA_THROW_VELOCITY = 0.45F;
     private static final float SMALL_THROW_VELOCITY = DEFAULT_THROW_VELOCITY * 2.0F;
+    private static final float FLASHBANG_THROW_VELOCITY = DEFAULT_THROW_VELOCITY * 1.3F;
 
     /** Тип гранати (порядковий номер у {@link Type}). Синхронізується з клієнтом для рендера. */
     private static final EntityDataAccessor<Integer> DATA_TYPE =
@@ -154,6 +156,14 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     private static final double CLUSTER_SUBMUNITION_SPREAD_RADIUS = 5.0D;
     private static final float CLUSTER_SUBMUNITION_SHRAPNEL_RADIUS = 15.0F;
     private static final float CLUSTER_SUBMUNITION_SHRAPNEL_DAMAGE = 28.0F;
+    private static final double FLASHBANG_MAX_DISTANCE = 30.0D;
+    private static final double FLASHBANG_FULL_POWER_DISTANCE = 5.0D;
+    private static final double FLASHBANG_FOV_DOT = 0.45D;
+    private static final int FLASHBANG_EFFECT_DURATION_TICKS = 100;
+    private static final int FLASHBANG_PLAYER_SECONDARY_EFFECT_TICKS = FLASHBANG_EFFECT_DURATION_TICKS / 4;
+    private static final double FLASHBANG_MOB_SLOWNESS_DISTANCE = 10.0D;
+    private static final double FLASHBANG_MOB_FULL_SLOWNESS_DISTANCE = 2.5D;
+    private static final int FLASHBANG_MOB_SLOWNESS_DURATION_TICKS = 100;
 
     /** Радіус вибуху для GIGA гранати (трохи сильніший за TNT). */
     public static final float GIGA_EXPLOSION_RADIUS = 4.5F;
@@ -253,9 +263,10 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                 && getGrenadeType() != Type.INCENDIARY_PROJECTILE
                 && getGrenadeType() != Type.FRAG_PROJECTILE
                 && getGrenadeType() != Type.MAGNETIC_GRENADE
-                && getGrenadeType() != Type.REMOTE_DYNAMITE_BUNDLE
+                && getGrenadeType() != Type.IMPROVISED_GRENADE
                 && getGrenadeType() != Type.MOLOTOV
                 && getGrenadeType() != Type.CLUSTER_GRENADE
+                && getGrenadeType() != Type.FLASHBANG_GRENADE
                 && getGrenadeType() != Type.INCENDIARY_FRAGMENT
                 && getGrenadeType() != Type.CLUSTER_SUBMUNITION
                 && !isSmokeEmitting()
@@ -273,9 +284,17 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         if (!this.level().isClientSide())
         {
             ItemStack pickedStack = getGrenadeType().getItem().getDefaultInstance();
-            pickedStack.set(CQCDataComponents.GRENADE_FUSE.get(), this.fuse);
+            boolean addedToInventory = false;
+            if (getGrenadeType() == Type.REMOTE_DYNAMITE_BUNDLE)
+            {
+                addedToInventory = replaceMatchingActiveDetonator(player, pickedStack);
+            }
+            else
+            {
+                pickedStack.set(CQCDataComponents.GRENADE_FUSE.get(), this.fuse);
+            }
 
-            if (!player.getInventory().add(pickedStack))
+            if (!addedToInventory && !player.getInventory().add(pickedStack))
             {
                 player.drop(pickedStack, false);
             }
@@ -292,6 +311,29 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         }
 
         return InteractionResult.sidedSuccess(this.level().isClientSide());
+    }
+
+    private boolean replaceMatchingActiveDetonator(Player player, ItemStack pickedStack)
+    {
+        String grenadeUuid = this.getUUID().toString();
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++)
+        {
+            ItemStack stack = player.getInventory().getItem(i);
+            if (!stack.is(CQCItems.ACTIVE_DETONATOR.get()))
+            {
+                continue;
+            }
+
+            String detonatorUuid = stack.get(CQCDataComponents.REMOTE_GRENADE_UUID.get());
+            Integer detonatorEntityId = stack.get(CQCDataComponents.REMOTE_GRENADE_ENTITY_ID.get());
+            if (grenadeUuid.equals(detonatorUuid) || detonatorEntityId != null && detonatorEntityId == this.getId())
+            {
+                player.getInventory().setItem(i, pickedStack);
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public Type getGrenadeType()
@@ -466,7 +508,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                     for (int i = 0; i < particleCount; i++)
                     {
                         this.level().addParticle(
-                                badLaunch ? ParticleTypes.CLOUD : ParticleTypes.CAMPFIRE_COSY_SMOKE,
+                                badLaunch ? ParticleTypes.CLOUD : ParticleTypes.SMOKE,
                                 this.getX() + (this.random.nextDouble() - 0.5D) * 0.08D,
                                 this.getY() + 0.05D + (this.random.nextDouble() - 0.5D) * 0.08D,
                                 this.getZ() + (this.random.nextDouble() - 0.5D) * 0.08D,
@@ -1555,6 +1597,10 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             {
                 detonateClusterGrenade();
             }
+            case FLASHBANG_GRENADE ->
+            {
+                detonateFlashbangGrenade();
+            }
             case INCENDIARY_FRAGMENT ->
             {
                 igniteIncendiaryFragment(this.position());
@@ -1641,6 +1687,141 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
     private int spawnShrapnelAndDamage(float radius, float damage)
     {
         return damageAndSpawnShrapnel(this.level(), this.getX(), this.getY(), this.getZ(), radius, damage, this, (LivingEntity) this.getOwner());
+    }
+
+    private void detonateFlashbangGrenade()
+    {
+        Vec3 flashPosition = this.position().add(0.0D, 0.25D, 0.0D);
+        if (this.level() instanceof ServerLevel serverLevel)
+        {
+            serverLevel.sendParticles(ParticleTypes.FLASH, flashPosition.x, flashPosition.y, flashPosition.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+            serverLevel.sendParticles(ParticleTypes.CLOUD, flashPosition.x, flashPosition.y, flashPosition.z, 10, 0.45D, 0.25D, 0.45D, 0.08D);
+
+            for (ServerPlayer player : serverLevel.players())
+            {
+                double distance = player.getEyePosition().distanceTo(flashPosition);
+                if (distance > FLASHBANG_MAX_DISTANCE || !canSeeFlashbang(player, flashPosition))
+                {
+                    continue;
+                }
+
+                int level = getFlashbangEffectLevel(distance);
+                refreshFlashbangEffect(player, level);
+            }
+
+            applyFlashbangMobSlowness(flashPosition);
+        }
+
+        this.level().playSound(
+                null,
+                flashPosition.x, flashPosition.y, flashPosition.z,
+                SoundEvents.FIREWORK_ROCKET_BLAST, SoundSource.NEUTRAL,
+                1.0F, 1.15F
+        );
+        this.level().playSound(
+                null,
+                flashPosition.x, flashPosition.y, flashPosition.z,
+                SoundEvents.SHULKER_SHOOT, SoundSource.NEUTRAL,
+                3.0F, 1.25F
+        );
+    }
+
+    private void applyFlashbangMobSlowness(Vec3 flashPosition)
+    {
+        List<LivingEntity> entities = this.level().getEntitiesOfClass(
+                LivingEntity.class,
+                new AABB(
+                        flashPosition.x - FLASHBANG_MOB_SLOWNESS_DISTANCE,
+                        flashPosition.y - FLASHBANG_MOB_SLOWNESS_DISTANCE,
+                        flashPosition.z - FLASHBANG_MOB_SLOWNESS_DISTANCE,
+                        flashPosition.x + FLASHBANG_MOB_SLOWNESS_DISTANCE,
+                        flashPosition.y + FLASHBANG_MOB_SLOWNESS_DISTANCE,
+                        flashPosition.z + FLASHBANG_MOB_SLOWNESS_DISTANCE
+                ),
+                entity -> !(entity instanceof Player) && entity.isAlive()
+        );
+
+        for (LivingEntity entity : entities)
+        {
+            double distance = entity.getBoundingBox().getCenter().distanceTo(flashPosition);
+            if (distance > FLASHBANG_MOB_SLOWNESS_DISTANCE)
+            {
+                continue;
+            }
+
+            int level = Math.max(1, getFlashbangMobSlownessLevel(distance));
+            entity.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, FLASHBANG_MOB_SLOWNESS_DURATION_TICKS, level - 1));
+        }
+    }
+
+    private void refreshFlashbangEffect(ServerPlayer player, int level)
+    {
+        int amplifier = level - 1;
+        MobEffectInstance currentEffect = player.getEffect(CQCEffects.FLASHING);
+        if (currentEffect != null && currentEffect.getAmplifier() > amplifier)
+        {
+            return;
+        }
+
+        player.removeEffect(CQCEffects.FLASHING);
+        player.addEffect(new MobEffectInstance(CQCEffects.FLASHING, FLASHBANG_EFFECT_DURATION_TICKS, amplifier));
+        player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, FLASHBANG_PLAYER_SECONDARY_EFFECT_TICKS, Math.max(0, amplifier / 3)));
+    }
+
+    private boolean canSeeFlashbang(ServerPlayer player, Vec3 flashPosition)
+    {
+        Vec3 eyePosition = player.getEyePosition();
+        Vec3 toFlash = flashPosition.subtract(eyePosition);
+        if (toFlash.lengthSqr() < 1.0E-4D)
+        {
+            return true;
+        }
+
+        if (player.getLookAngle().normalize().dot(toFlash.normalize()) < FLASHBANG_FOV_DOT)
+        {
+            return false;
+        }
+
+        BlockHitResult hit = this.level().clip(new ClipContext(
+                eyePosition,
+                flashPosition,
+                ClipContext.Block.COLLIDER,
+                ClipContext.Fluid.NONE,
+                player
+        ));
+
+        return hit.getType() == HitResult.Type.MISS
+                || eyePosition.distanceToSqr(hit.getLocation()) >= eyePosition.distanceToSqr(flashPosition) - 0.25D;
+    }
+
+    private static int getFlashbangEffectLevel(double distance)
+    {
+        if (distance <= FLASHBANG_FULL_POWER_DISTANCE)
+        {
+            return 10;
+        }
+
+        double falloff = Mth.clamp(
+                (distance - FLASHBANG_FULL_POWER_DISTANCE) / (FLASHBANG_MAX_DISTANCE - FLASHBANG_FULL_POWER_DISTANCE),
+                0.0D,
+                1.0D
+        );
+        return Mth.clamp(10 - (int) Math.round(falloff * 9.0D), 1, 10);
+    }
+
+    private static int getFlashbangMobSlownessLevel(double distance)
+    {
+        if (distance <= FLASHBANG_MOB_FULL_SLOWNESS_DISTANCE)
+        {
+            return 5;
+        }
+
+        double falloff = Mth.clamp(
+                (distance - FLASHBANG_MOB_FULL_SLOWNESS_DISTANCE) / (FLASHBANG_MOB_SLOWNESS_DISTANCE - FLASHBANG_MOB_FULL_SLOWNESS_DISTANCE),
+                0.0D,
+                1.0D
+        );
+        return Mth.clamp(5 - (int) Math.round(falloff * 4.0D), 1, 5);
     }
 
     private int damageAirburstShrapnel()
@@ -2038,6 +2219,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
             case GIGA -> GIGA_THROW_VELOCITY;
             case GIGA_GIGA -> GIGA_THROW_VELOCITY;
             case SMALL_GRENADE -> SMALL_THROW_VELOCITY;
+            case FLASHBANG_GRENADE -> FLASHBANG_THROW_VELOCITY;
             default -> DEFAULT_THROW_VELOCITY;
         };
         grenade.shootFromRotation(thrower, thrower.getXRot(), thrower.getYRot(), -20.0F, velocity, 1.0F);
@@ -2068,6 +2250,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
         SAPPER_BAG,              // саперна сумка
         CLUSTER_GRENADE,         // кластерна граната
         CLUSTER_SUBMUNITION,     // внутрішній кластерний суббоєприпас
+        FLASHBANG_GRENADE,       // світло-шумова граната
         GIGA_GIGA,               // гіга гіга граната
         HEAT_PROJECTILE,         // снаряд гранатомета з кумулятивним зарядом
         LARGE_HEAT_PROJECTILE,   // снаряд гранатомета з великим кумулятивним зарядом
@@ -2093,6 +2276,7 @@ public class ThrownGrenadeEntity extends ThrowableItemProjectile
                 case MOLOTOV -> CQCItems.MOLOTOV.get();
                 case INCENDIARY_GRENADE, INCENDIARY_FRAGMENT, INCENDIARY_PROJECTILE -> CQCItems.INCENDIARY_GRENADE.get();
                 case CLUSTER_GRENADE, CLUSTER_SUBMUNITION -> CQCItems.CLUSTER_GRENADE.get();
+                case FLASHBANG_GRENADE -> CQCItems.FLASHBANG_GRENADE.get();
                 case STICKY_GRENADE -> CQCItems.STICKY_GRENADE.get();
                 case GAS -> CQCItems.GAS_GRENADE.get();
                 case SMOKE -> CQCItems.SMOKE_GRENADE.get();

@@ -3,6 +3,7 @@ package com.rdc.cqc;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
+import com.rdc.cqc.effect.CQCEffects;
 import com.rdc.cqc.entity.CQCEntities;
 import com.rdc.cqc.item.CQCDataComponents;
 import com.rdc.cqc.item.CQCItems;
@@ -56,6 +57,7 @@ public class CloseQuarterCombat
                         output.accept(CQCItems.MOLOTOV.get());
                         output.accept(CQCItems.INCENDIARY_GRENADE.get());
                         output.accept(CQCItems.CLUSTER_GRENADE.get());
+                        output.accept(CQCItems.FLASHBANG_GRENADE.get());
                         output.accept(CQCItems.IMPACT_GRENADE.get());
                         output.accept(CQCItems.SHAPED_CHARGE_GRENADE.get());
                         output.accept(CQCItems.IMPACT_MINE.get());
@@ -64,7 +66,6 @@ public class CloseQuarterCombat
                         output.accept(CQCItems.HIGH_EXPLOSIVE_LAUNCHER.get());
                         output.accept(CQCItems.INCENDIARY_LAUNCHER.get());
                         output.accept(CQCItems.FRAG_LAUNCHER.get());
-                        output.accept(CQCItems.EMPTY_LAUNCH_TUBE.get());
                         output.accept(CQCItems.MAGNETIC_GRENADE.get());
                         output.accept(CQCItems.STICKY_GRENADE.get());
                         output.accept(CQCItems.GIGA_GRENADE.get());
@@ -79,6 +80,7 @@ public class CloseQuarterCombat
                         output.accept(CQCItems.FUSE.get());
                         output.accept(CQCItems.CONTACT_DETONATOR.get());
                         output.accept(CQCItems.REMOTE_DETONATOR.get());
+                        output.accept(CQCItems.EMPTY_LAUNCH_TUBE.get());
                         output.accept(CQCItems.EXPLOSIVE_GRENADE_PART.get());
                         output.accept(CQCItems.HEAT_GRENADE_PART.get());
                     })
@@ -91,6 +93,7 @@ public class CloseQuarterCombat
         CQCItems.ITEMS.register(modEventBus);
         CQCEntities.ENTITY_TYPES.register(modEventBus);
         CQCDataComponents.COMPONENTS.register(modEventBus);
+        CQCEffects.MOB_EFFECTS.register(modEventBus);
 
         // Реєстрація вкладки
         CREATIVE_MODE_TABS.register(modEventBus);

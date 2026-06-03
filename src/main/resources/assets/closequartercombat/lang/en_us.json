@@ -43,6 +43,8 @@
   "item.closequartercombat.incendiary_grenade.tooltip": "After 5 seconds, scatters incendiary fragments that set surfaces on fire.",
   "item.closequartercombat.cluster_grenade": "Cluster Grenade",
   "item.closequartercombat.cluster_grenade.tooltip": "After 2 seconds, scatters submunitions that detonate as weaker fragmentation charges.",
+  "item.closequartercombat.flashbang_grenade": "Flashbang Grenade",
+  "item.closequartercombat.flashbang_grenade.tooltip": "Detonates quickly and blinds players looking at the flash.",
   "item.closequartercombat.impact_grenade": "Impact Grenade",
   "item.closequartercombat.impact_grenade.tooltip": "Explodes immediately on first impact.",
   "item.closequartercombat.heat_grenade": "HEAT Grenade",
@@ -74,6 +76,7 @@
   "item.closequartercombat.giga_giga_grenade.tooltip": "An even heavier grenade with a blast 30% stronger than the giga grenade.",
 
   "entity.closequartercombat.thrown_grenade": "Thrown Grenade",
+  "effect.closequartercombat.flashing": "Flashing",
 
   "advancements.closequartercombat.simple_grenades.title": "Simple Grenades",
   "advancements.closequartercombat.simple_grenades.description": "Grenades, explosions, and questionable decisions",
