@@ -7,6 +7,7 @@ import com.rdc.cqc.effect.CQCEffects;
 import com.rdc.cqc.entity.CQCEntities;
 import com.rdc.cqc.item.CQCDataComponents;
 import com.rdc.cqc.item.CQCItems;
+import com.rdc.cqc.mine.CQCMines;
 import com.rdc.cqc.network.PullPinPayload;
 
 import net.minecraft.core.registries.Registries;
@@ -61,6 +62,8 @@ public class CloseQuarterCombat
                         output.accept(CQCItems.IMPACT_GRENADE.get());
                         output.accept(CQCItems.SHAPED_CHARGE_GRENADE.get());
                         output.accept(CQCItems.IMPACT_MINE.get());
+                        output.accept(CQCItems.FRAG_PRESSURE_MINE.get());
+                        output.accept(CQCItems.HIGH_EXPLOSIVE_PRESSURE_MINE.get());
                         output.accept(CQCItems.HEAT_LAUNCHER.get());
                         output.accept(CQCItems.LARGE_HEAT_LAUNCHER.get());
                         output.accept(CQCItems.HIGH_EXPLOSIVE_LAUNCHER.get());
@@ -106,6 +109,7 @@ public class CloseQuarterCombat
         NeoForge.EVENT_BUS.addListener(CQCEvents::onLivingDeath);
         NeoForge.EVENT_BUS.addListener(CQCEvents::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(CQCEvents::onRightClickItem);
+        NeoForge.EVENT_BUS.addListener(CQCMines::onEntityTick);
 
         LOGGER.info("Simple Grenades loaded!");
     }

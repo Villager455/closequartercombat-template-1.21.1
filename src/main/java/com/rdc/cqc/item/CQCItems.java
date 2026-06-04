@@ -2,6 +2,8 @@ package com.rdc.cqc.item;
 
 import com.rdc.cqc.CloseQuarterCombat;
 import com.rdc.cqc.entity.ThrownGrenadeEntity;
+import com.rdc.cqc.mine.CQCMines;
+import com.rdc.cqc.mine.PressureMineItem;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.Item;
@@ -181,6 +183,16 @@ public class CQCItems
     public static final DeferredItem<Item> IMPACT_MINE = ITEMS.register(
             "impact_mine",
             () -> new ImpactMineItem(new Item.Properties().stacksTo(1))
+    );
+
+    public static final DeferredItem<Item> FRAG_PRESSURE_MINE = ITEMS.register(
+            "frag_pressure_mine",
+            () -> new PressureMineItem(new Item.Properties().stacksTo(16), CQCMines.Type.FRAG_PRESSURE)
+    );
+
+    public static final DeferredItem<Item> HIGH_EXPLOSIVE_PRESSURE_MINE = ITEMS.register(
+            "high_explosive_pressure_mine",
+            () -> new PressureMineItem(new Item.Properties().stacksTo(16), CQCMines.Type.HIGH_EXPLOSIVE_PRESSURE)
     );
 
     public static final DeferredItem<Item> HEAT_LAUNCHER = ITEMS.register(
